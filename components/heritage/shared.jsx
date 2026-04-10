@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { COLORS } from "./colors";
 
 export function BackButton({ navigate }) {
@@ -14,7 +14,7 @@ export function BackButton({ navigate }) {
     onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
     onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
     >
-      ← Back to Room
+      <span style={{ fontSize: 16 }}>{"<"}</span> Back to Room
     </button>
   );
 }
@@ -36,10 +36,10 @@ export function PageContainer({ children, title, navigate, boomerMode, descripti
           <div style={{
             background: "#fff9e6", border: `2px solid ${COLORS.warm}`, borderRadius: 12,
             padding: "14px 20px", margin: "12px auto 24px", maxWidth: 600, textAlign: "center",
-            fontSize: 17, lineHeight: 1.6, color: COLORS.inkLight,
+            fontSize: 19, lineHeight: 1.7, color: COLORS.inkLight,
             fontFamily: "'Caveat', cursive", fontWeight: 500,
           }}>
-            💡 {description}
+            {description}
           </div>
         )}
         <div style={{ width: 60, height: 3, background: COLORS.warm, margin: "0 auto 32px", borderRadius: 2 }} />

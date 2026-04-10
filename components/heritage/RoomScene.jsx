@@ -1,9 +1,21 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { COLORS } from "./colors";
+import { SpriteImg } from "./shared";
 
-export default function RoomScene({ navigate, currentUser, boomerMode, setBoomerMode }) {
+export default function RoomScene({
+  navigate,
+  currentUser,
+  setCurrentUser,
+  boomerMode,
+  setBoomerMode,
+  sprites,
+  updateSprite,
+  members,
+}) {
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [showPortraitPicker, setShowPortraitPicker] = useState(false);
 
   const items = [
     { id: "tree", label: "Family Tree", desc: "View your family tree and see notes left by each member", x: "75%", y: "10%",emoji: "😹",asset: "/assets/famtree.png" },
@@ -37,7 +49,13 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
       {items.map(item => (
         <button
           key={item.id}
-          onClick={() => navigate(item.id)}
+          onClick={() => {
+            if (item.id === "portrait") {
+              setShowPortraitPicker(true);
+              return;
+            }
+            navigate(item.id);
+          }}
           onMouseEnter={() => setHoveredItem(item.id)}
           onMouseLeave={() => setHoveredItem(null)}
           style={{
@@ -73,13 +91,14 @@ transform: "translate(-50%, -50%)",
               position: "absolute", bottom: "105%", left: "50%", transform: "translateX(-50%)",
               background: COLORS.paper, padding: "8px 14px", borderRadius: 8,
               boxShadow: `0 4px 15px ${COLORS.shadow}`, whiteSpace: "nowrap",
-              fontSize: "clamp(11px, 1.4vw, 14px)", fontFamily: "'Playfair Display', serif",
+              fontSize: boomerMode ? "clamp(14px, 1.8vw, 18px)" : "clamp(11px, 1.4vw, 14px)",
+              fontFamily: "'Playfair Display', serif",
               color: COLORS.ink, fontWeight: 600, border: `1px solid ${COLORS.warm}`,
               pointerEvents: "none",
             }}>
               {item.label}
               {boomerMode && (
-                <div style={{ fontSize: "clamp(9px,1.1vw,12px)", fontWeight: 400, fontFamily: "'Crimson Text', serif", color: COLORS.inkLight, marginTop: 3, whiteSpace: "normal", maxWidth: 200, textAlign: "center" }}>
+                <div style={{ fontSize: boomerMode ? "clamp(12px, 1.4vw, 15px)" : "clamp(9px,1.1vw,12px)", fontWeight: 400, fontFamily: "'Crimson Text', serif", color: COLORS.inkLight, marginTop: 3, whiteSpace: "normal", maxWidth: 240, textAlign: "center" }}>
                   {item.desc}
                 </div>
               )}
@@ -128,7 +147,7 @@ transform: "translate(-50%, -50%)",
           transition: "all 0.3s",
         }}
       >
-        {boomerMode ? "🔔" : "🔕"} Guide Mode {boomerMode ? "ON" : "OFF"}
+        {boomerMode ? "i" : "i"} Guide Mode {boomerMode ? "ON" : "OFF"}
       </button>
     </div>
   );
