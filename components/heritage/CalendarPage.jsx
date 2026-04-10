@@ -127,7 +127,7 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, member
       {/* All events this month */}
       {allMonthNotes.length > 0 && !showDayModal && !selectedDay && (
         <div style={{ marginTop: 24 }}>
-          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 14 }}>This Month's Events</h3>
+          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 14 }}>This Month&apos;s Events</h3>
           {allMonthNotes.map((note, i) => (
             <div key={i} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
