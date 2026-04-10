@@ -1,10 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
-import { NOTES, getMember } from "./data";
 import { PageContainer } from "./shared";
 
-export default function LettersPage({ navigate, currentUser, boomerMode }) {
+export default function LettersPage({ navigate, currentUser, boomerMode, members, notes, addNote }) {
   const today = new Date();
   const [composeOpen, setComposeOpen] = useState(false);
   const [toMember, setToMember] = useState("all");
@@ -14,7 +13,7 @@ export default function LettersPage({ navigate, currentUser, boomerMode }) {
   const [unlockDate, setUnlockDate] = useState("");
   const [eventDate, setEventDate] = useState("");
 
-  const getMember = (id) => members.find(m => m.id === id);
+  const getMember = (id) => members.find((m) => m.id === id);
 
   const isLocked = (note) => {
     if (!note.unlockDate) return false;
