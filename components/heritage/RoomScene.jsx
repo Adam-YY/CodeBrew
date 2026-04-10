@@ -37,23 +37,24 @@ export default function RoomScene({
       emoji: "😹",
       asset: "/assets/famtree.png",
     },
-        {
+    {
       id: "cassette",
       label: "Cassette Player",
       desc: "Record or upload documents, voice recordings, and videos for the family",
-      x: "59.5%",
-      y: "66%",
+      x: "59.2%",
+      y: "66.5%",
       size: "32%",
       emoji: "📼",
       asset: "/assets/cassetplayer.png",
+      hoverAsset: "/assets/cassetplayeropen.png",
     },
     {
       id: "portrait",
       label: "Portrait Frame",
       desc: "Switch between family members to see messages left for each person",
       x: "82.5%",
-      y: "75%",
-      size: "25%",
+      y: "76%",
+      size: "25.5%",
       emoji: "🖼️",
       asset: "/assets/photoframe.png",
     },
@@ -63,20 +64,21 @@ export default function RoomScene({
       desc: "View family traditions and messages organised by date",
       x: "28%",
       y: "77%",
-      size: "28%",
+      size: "28.5%",
       emoji: "📅",
       asset: "/assets/calendar.png",
+      hoverAsset: "/assets/calendaropen.png",
     },
-
     {
       id: "letters",
       label: "Family Letters",
       desc: "Read messages left for you — some may be locked until a special date",
       x: "52.8%",
-      y: "89.5%",
+      y: "86%",
       size: "22%",
       emoji: "✉️",
       asset: "/assets/letter.png",
+      hoverAsset: "/assets/letteropen.png",
     },
   ];
 
@@ -108,7 +110,7 @@ export default function RoomScene({
           top: "0%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "41%",
+          width: "43%",
           height: "auto",
           objectFit: "cover",
           zIndex: 0,
@@ -155,10 +157,7 @@ export default function RoomScene({
             left: item.x,
             top: item.y,
             // ✅ Combine both transforms into one
-            transform:
-              hoveredItem === item.id
-                ? "translate(-50%, -50%) scale(1.05) translateY(-3px)"
-                : "translate(-50%, -50%)",
+            transform: "translate(-50%, -50%)",
             background:
               hoveredItem === item.id
                 ? `radial-gradient(circle, rgba(212,165,106,0.35) 0%, transparent 70%)`
@@ -181,7 +180,7 @@ export default function RoomScene({
         >
           {item.asset ? (
             <img
-              src={item.asset}
+              src={hoveredItem === item.id && item.hoverAsset ? item.hoverAsset : item.asset}
               alt={item.label}
               style={{
                 width: "100%",
