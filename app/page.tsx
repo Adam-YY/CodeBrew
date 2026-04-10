@@ -1,4 +1,4 @@
-import HeritageHome from "@/components/heritage-home";
+import HeritageHome from "@/components/heritage";
 
 export default function Home() {
   return <HeritageHome />;
