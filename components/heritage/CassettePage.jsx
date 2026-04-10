@@ -1,14 +1,23 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer } from "./shared";
 import { supabase } from "@/supabase/client";
 
-export default function CassettePage({ navigate, currentUser, boomerMode, members }) {
+export default function CassettePage({
+  navigate,
+  currentUser,
+  boomerMode,
+  members,
+  addUpload,
+  calendarDraft,
+  consumeCalendarDraft,
+}) {
   const [uploadType, setUploadType] = useState("document");
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
   const [recipient, setRecipient] = useState("all");
+  const [eventDate, setEventDate] = useState("");
   const [messages, setMessages] = useState([]);
   const [signedUrls, setSignedUrls] = useState({});
   const [uploading, setUploading] = useState(false);
@@ -68,6 +77,7 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
     if (!file && !title.trim()) return;
     setUploading(true);
     try {
+      const formattedEventDate = eventDate ? eventDate.slice(5) : null;
       let filePath = null;
       if (file) {
         const safeName = file.name
@@ -93,13 +103,24 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
         return "IMAGE";
       };
 
-      const { error: insertError } = await supabase.from("message").insert({
+      const basePayload = {
         sender_id: currentUser.id,
         recipient_id: recipient === "all" ? null : recipient,
         media_path: filePath,
         media_type: toMediaTypeEnum(file?.type),  // enum: IMAGE | AUDIO | VIDEO (NOT NULL)
         description: title || null,               // schema column is "description", not "content"
+      };
+
+      // Some environments may not have event_date yet; fallback keeps uploads working.
+      const { error: insertErrorWithDate } = await supabase.from("message").insert({
+        ...basePayload,
+        event_date: formattedEventDate,
       });
+      let insertError = insertErrorWithDate;
+      if (insertErrorWithDate && String(insertErrorWithDate.message || "").toLowerCase().includes("event_date")) {
+        const fallbackInsert = await supabase.from("message").insert(basePayload);
+        insertError = fallbackInsert.error;
+      }
       if (insertError) {
         console.error("Insert error:", insertError);
         return;
@@ -112,6 +133,7 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
         media_path: filePath,
         media_type: file?.type || null,  // raw MIME for isImage/isAudio/isVideo checks below
         description: title || null,
+        event_date: formattedEventDate,
         created_at: new Date().toISOString(),
       };
 
@@ -126,8 +148,10 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
       }
 
       setMessages((prev) => [newMsg, ...prev]);
+      addUpload?.(newMsg);
       setFile(null);
       setTitle("");
+      setEventDate("");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } finally {
@@ -147,6 +171,12 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
     if (mediaType.startsWith("video/")) return "video";
     return "document";
   };
+
+  useEffect(() => {
+    if (calendarDraft?.target !== "cassette") return;
+    setEventDate(calendarDraft.eventDate || "");
+    consumeCalendarDraft?.("cassette");
+  }, [calendarDraft, consumeCalendarDraft]);
 
   return (
     <PageContainer
@@ -238,6 +268,21 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
               accept={accepts[uploadType]}
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               style={{ display: "block", marginTop: 6, color: COLORS.warmLight }}
+            />
+          </label>
+
+          <label style={{ fontSize: 12, color: COLORS.warmLight, fontFamily: "'Crimson Text', serif" }}>
+            Calendar date (optional)
+            <input
+              type="date"
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
+              style={{
+                width: "100%", marginTop: 6, padding: "8px 10px",
+                borderRadius: 10, border: `1px solid ${COLORS.warm}60`,
+                background: "#1f140c", color: COLORS.warmLight,
+                fontFamily: "'Crimson Text', serif", boxSizing: "border-box",
+              }}
             />
           </label>
         </div>
