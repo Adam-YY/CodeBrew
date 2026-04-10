@@ -301,6 +301,7 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
                   <option value="4">Generation 4</option>
                 </select>
               </label>
+              {/*}
               <label style={{ fontSize: 12, color: COLORS.inkLight }}>
                 Role (optional)
                 <input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="e.g. Aunt, Cousin" style={{
@@ -322,6 +323,7 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
                   ))}
                 </select>
               </label>
+              */}
             </div>
             <button onClick={handleAddMember} style={{
               marginTop: 16, width: "100%", padding: "10px 14px",
