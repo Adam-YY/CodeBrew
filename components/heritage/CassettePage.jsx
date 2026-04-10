@@ -70,7 +70,12 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
     try {
       let filePath = null;
       if (file) {
-        filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
+        const safeName = file.name
+          .normalize("NFD")
+          .replace(/[^\w\s.-]/g, "")   // strip non-ASCII and special chars
+          .replace(/\s+/g, "_")          // spaces to underscores
+          || "upload";
+        filePath = `${currentUser.id}/${Date.now()}-${safeName}`;
         const { error } = await supabase.storage
           .from("multimedia")
           .upload(filePath, file);
@@ -317,12 +322,12 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
               )}
               {url && isAudio && (
                 <audio controls style={{ width: "100%" }}>
-                  <source src={url} type={msg.media_type} />
+                  <source src={url} type={msg.media_type?.includes("/") ? msg.media_type : undefined} />
                 </audio>
               )}
               {url && isVideo && (
                 <video controls style={{ width: "100%", borderRadius: 10 }}>
-                  <source src={url} type={msg.media_type} />
+                  <source src={url} type={msg.media_type?.includes("/") ? msg.media_type : undefined} />
                 </video>
               )}
             </div>
