@@ -1,17 +1,16 @@
 "use client";
 import { useState } from "react";
 import { COLORS } from "./colors";
-import { NOTES, getMember } from "./data";
-import { PageContainer } from "./shared";
+import { PageContainer, SpriteImg } from "./shared";
 
-export default function CalendarPage({ navigate, currentUser, boomerMode }) {
+export default function CalendarPage({ navigate, currentUser, boomerMode, members, notes, sprites }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
   const [showDayModal, setShowDayModal] = useState(false);
   const year = 2026;
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-  const getMember = (id) => members.find(m => m.id === id);
+  const getMember = (id) => members.find((m) => m.id === id);
 
   const daysInMonth = new Date(year, selectedMonth + 1, 0).getDate();
   const firstDay = new Date(year, selectedMonth, 1).getDay();
