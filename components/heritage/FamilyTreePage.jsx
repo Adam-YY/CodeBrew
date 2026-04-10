@@ -5,7 +5,7 @@ import { PageContainer, SpriteImg } from "./shared";
 import { createPerson } from "@/supabase/queries/person";
 
 
-export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes, addMember, familyId}) {
+export default function FamilyTreePage({ navigate, boomerMod, sprites, members, notes, addMember, familyId, viewSrc }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
@@ -88,7 +88,8 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
 
   return (
     <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMod}
-      description="Browse family members by generation. Tap a person to see the notes they have left for the family. Use the plus button to add new family members.">
+      description="Browse family members by generation. Tap a person to see the notes they have left for the family. Use the plus button to add new family members."
+      viewSrc={viewSrc}>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>

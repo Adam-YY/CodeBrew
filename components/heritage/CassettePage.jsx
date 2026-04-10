@@ -13,6 +13,7 @@ export default function CassettePage({
   addUpload,
   calendarDraft,
   consumeCalendarDraft,
+  viewSrc,
 }) {
   const [uploadType, setUploadType] = useState("document");
   const [file, setFile] = useState(null);
@@ -168,6 +169,7 @@ export default function CassettePage({
       title="Cassette Player"
       boomerMode={boomerMode}
       description="Record family history. Choose a media type, write a title, and upload to the vault."
+      viewSrc={viewSrc}
     >
       <style>{`
         @keyframes popIn {
