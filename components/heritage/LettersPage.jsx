@@ -1,9 +1,9 @@
 "use client";
 import { COLORS } from "./colors";
 import { NOTES, getMember } from "./data";
-import { PageContainer, SpriteImg } from "./shared";
+import { PageContainer } from "./shared";
 
-export default function LettersPage({ navigate, currentUser, boomerMode, sprites }) {
+export default function LettersPage({ navigate, currentUser, boomerMode }) {
   const today = new Date();
 
   const isLocked = (note) => {
@@ -44,7 +44,7 @@ export default function LettersPage({ navigate, currentUser, boomerMode, sprites
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                {from && <SpriteImg src={sprites[from.id]} fallback={from.avatar} size={22} />}
+                {from && <span style={{ fontSize: 22, lineHeight: 1 }}>{from.avatar}</span>}
                 <div>
                   <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>{from?.name}</div>
                   <div style={{ fontSize: 11, color: COLORS.inkLight }}>

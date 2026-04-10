@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { COLORS } from "./colors";
 import { NOTES, getMember } from "./data";
-import { PageContainer, SpriteImg } from "./shared";
+import { PageContainer } from "./shared";
 
-export default function CalendarPage({ navigate, currentUser, boomerMode, sprites }) {
+export default function CalendarPage({ navigate, currentUser, boomerMode }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
   const year = 2026;
@@ -80,7 +80,7 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, sprite
                 borderRadius: 14, padding: 20, marginBottom: 12,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  {from && <SpriteImg src={sprites[from.id]} fallback={from.avatar} size={22} />}
+                  {from && <span style={{ fontSize: 22, lineHeight: 1 }}>{from.avatar}</span>}
                   <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>{from?.name}</span>
                 </div>
                 <h4 style={{ fontFamily: "'Playfair Display', serif", margin: "0 0 6px", fontSize: 16 }}>{note.title}</h4>

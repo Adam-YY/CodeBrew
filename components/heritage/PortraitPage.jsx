@@ -1,9 +1,9 @@
 "use client";
 import { COLORS } from "./colors";
 import { FAMILY_MEMBERS, NOTES, getMember } from "./data";
-import { PageContainer, SpriteImg } from "./shared";
+import { PageContainer } from "./shared";
 
-export default function PortraitPage({ navigate, currentUser, setCurrentUser, boomerMode, sprites }) {
+export default function PortraitPage({ navigate, currentUser, setCurrentUser, boomerMode }) {
   return (
     <PageContainer navigate={navigate} title="Family Portraits" boomerMode={boomerMode}
       description="Tap a family member's portrait to switch to their view. You'll see messages and notes left specifically for that person.">
@@ -28,7 +28,7 @@ export default function PortraitPage({ navigate, currentUser, setCurrentUser, bo
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.transform = "scale(1.03)" }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.transform = "scale(1)" }}
             >
-              <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={48} />
+              <span style={{ fontSize: 48, lineHeight: 1 }}>{member.avatar}</span>
               <span style={{
                 fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600,
                 color: isActive ? COLORS.paper : COLORS.ink,
@@ -61,7 +61,7 @@ export default function PortraitPage({ navigate, currentUser, setCurrentUser, bo
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {from && <SpriteImg src={sprites[from.id]} fallback={from.avatar} size={22} />}
+                    {from && <span style={{ fontSize: 22, lineHeight: 1 }}>{from.avatar}</span>}
                     <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>{from?.name}</span>
                   </div>
                   <span style={{

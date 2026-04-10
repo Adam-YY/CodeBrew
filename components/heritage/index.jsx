@@ -14,22 +14,13 @@ export default function HeritageHome() {
   const [currentUser, setCurrentUser] = useState(FAMILY_MEMBERS[4]); // Brian
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
-  const [sprites, setSprites] = useState({});
 
   const navigate = (target) => {
     setTransition(true);
     setTimeout(() => { setPage(target); setTransition(false); }, 400);
   };
 
-  const updateSprite = (key, file) => {
-    if (!file) return;
-    setSprites(prev => {
-      if (prev[key]) URL.revokeObjectURL(prev[key]);
-      return { ...prev, [key]: URL.createObjectURL(file) };
-    });
-  };
-
-  const pageProps = { navigate, currentUser, setCurrentUser, boomerMode, setBoomerMode, sprites, updateSprite };
+  const pageProps = { navigate, currentUser, setCurrentUser, boomerMode, setBoomerMode };
 
   return (
     <div style={{
