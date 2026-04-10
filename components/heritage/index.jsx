@@ -10,6 +10,7 @@ import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
+import { createPerson } from "@/supabase/queries/person";
 import { supabase } from "@/supabase/client";
 
 export default function HeritageHome() {
@@ -23,6 +24,8 @@ export default function HeritageHome() {
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
   const [sprites, setSprites] = useState({});
+
+  const [familyId, setFamilyId] = useState("bd1af34e-76cc-4bad-a302-c090957ad6d8"); //temporary
 
   const navigate = (target) => {
     setTransition(true);
@@ -95,18 +98,17 @@ export default function HeritageHome() {
     addMember,
     addNote,
     addUpload,
+    familyId,
   };
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const familyId = "bd1af34e-76cc-4bad-a302-c090957ad6d8";  //temporary
-
-        console.log("🚀 Loading family data...");
+        console.log("Loading family data...");
 
         const familyMembers = await getFamilyMembers(familyId);
 
-        console.log("✅ Raw DB members:", familyMembers);
+        console.log("Raw DB members:", familyMembers);
 
         const mappedMembers = familyMembers.map((m, index) => ({
           id: m.id,
@@ -115,17 +117,17 @@ export default function HeritageHome() {
           role: "Family",
           born: m.date_of_birth,
           parentId: null,
-          generation: 1,
+          generation: m.generation || 1,
         }));
 
-        console.log("🎨 Mapped members:", mappedMembers);
+        console.log("Mapped members:", mappedMembers);
 
         setMembers(mappedMembers);
 
         const firstUser = mappedMembers[0] || null;
         setCurrentUser(firstUser);
 
-        console.log("👤 Current user:", firstUser);
+        console.log("Current user:", firstUser);
 
         // load uploads AFTER user is ready
         const { data, error } = await supabase
@@ -136,12 +138,12 @@ export default function HeritageHome() {
         if (error) {
           console.error("Upload fetch error:", error);
         } else {
-          console.log("📦 Messages:", data);
+          console.log("Messages:", data);
           setUploads(data || []);
         }
 
       } catch (err) {
-        console.error("❌ Error loading data:", err);
+        console.error("Error loading data:", err);
       } finally {
         setLoading(false);
       }
