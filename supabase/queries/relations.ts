@@ -1,6 +1,8 @@
 import { supabase } from '@/supabase/client';
 
 export const getFamilyMembers = async (familyId) => {
+  console.log('Fetching family members for family ID:', familyId);
+
   const { data, error } = await supabase
     .from('family_person')
     .select(`
@@ -8,7 +10,9 @@ export const getFamilyMembers = async (familyId) => {
         id,
         first_name,
         last_name,
-        created_at
+        created_at,
+        date_of_birth,
+        gender
       )
     `)
     .eq('family_id', familyId)
@@ -16,9 +20,16 @@ export const getFamilyMembers = async (familyId) => {
 
   if (error) throw error;
 
-  // remove created_at before returning
   return data.map(row => {
-    const { created_at, ...person } = row.person;
-    return person;
+    const p = row.person;
+
+    return {
+      id: p.id,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      created_at: p.created_at,
+      date_of_birth: p.date_of_birth,
+      gender: p.gender,
+    };
   });
 };
