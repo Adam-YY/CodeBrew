@@ -1,19 +1,28 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { COLORS } from "./colors";
-import { FAMILY_MEMBERS } from "./data";
 import { SpriteImg } from "./shared";
 
-export default function RoomScene({ navigate, currentUser, boomerMode, setBoomerMode, sprites, updateSprite }) {
+export default function RoomScene({
+  navigate,
+  currentUser,
+  setCurrentUser,
+  boomerMode,
+  setBoomerMode,
+  sprites,
+  updateSprite,
+  members,
+}) {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [showPortraitPicker, setShowPortraitPicker] = useState(false);
 
   const items = [
     { id: "portrait", label: "Portrait Frame", desc: "Switch between family members to see messages left for each person", x: "9%", y: "52%", w: "14%", h: "22%", emoji: "🖼️" },
     { id: "calendar", label: "Family Calendar", desc: "View family traditions and messages organised by date", x: "28%", y: "54%", w: "13%", h: "20%", emoji: "📅" },
     { id: "cassette", label: "Cassette Player", desc: "Record or upload documents, voice recordings, and videos for the family", x: "46%", y: "58%", w: "15%", h: "16%", emoji: "📼" },
     { id: "tree", label: "Family Tree", desc: "View your family tree and see notes left by each member", x: "65%", y: "14%", w: "28%", h: "32%", emoji: "🌳" },
-    { id: "letters", label: "Family Letters", desc: "Read messages left for you — some may be locked until a special date", x: "73%", y: "56%", w: "14%", h: "18%", emoji: "✉️" },
+    { id: "letters", label: "Family Letters", desc: "Read messages left for you - some may be locked until a special date", x: "73%", y: "56%", w: "14%", h: "18%", emoji: "✉️" },
   ];
 
   const FileInput = ({ spriteKey, label }) => (
@@ -47,7 +56,7 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
         }} />
       )}
 
-      {/* Window — hidden when custom bg is set */}
+      {/* Window - hidden when custom bg is set */}
       {!sprites.bg && (
         <div style={{
           position: "absolute", left: "25%", top: "4%", width: "50%", height: "42%",
@@ -63,11 +72,11 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
         </div>
       )}
 
-      {/* Wall decorations — hidden when custom bg is set */}
+      {/* Wall decorations - hidden when custom bg is set */}
       {!sprites.bg && (
         <>
           <div style={{ position: "absolute", left: "8%", top: "8%", fontSize: "clamp(10px,1.5vw,16px)", color: COLORS.warmLight, opacity: 0.3, fontFamily: "'Caveat', cursive", transform: "rotate(-5deg)", letterSpacing: 1 }}>
-            家 和 万 事 兴
+            Family blessings
           </div>
           <div style={{
             position: "absolute", inset: 0, opacity: 0.04,
@@ -77,7 +86,7 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0, height: "48%",
             background: `linear-gradient(180deg, #6b4226 0%, #5a3720 5%, #7a4f30 10%, #6b4226 100%)`,
-            borderTop: `4px solid #8b6340`, boxShadow: `inset 0 5px 15px rgba(0,0,0,0.3)`,
+            borderTop: `4px solid #8b6340`, boxShadow: `inset 0 5px 15px rgba(0,0,0,0.3)` ,
           }}>
             <div style={{ position: "absolute", inset: 0, opacity: 0.08, backgroundImage: `repeating-linear-gradient(95deg, transparent, transparent 40px, rgba(0,0,0,0.15) 40px, rgba(0,0,0,0.15) 41px)`, pointerEvents: "none" }} />
           </div>
@@ -93,7 +102,13 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
       {items.map(item => (
         <button
           key={item.id}
-          onClick={() => navigate(item.id)}
+          onClick={() => {
+            if (item.id === "portrait") {
+              setShowPortraitPicker(true);
+              return;
+            }
+            navigate(item.id);
+          }}
           onMouseEnter={() => setHoveredItem(item.id)}
           onMouseLeave={() => setHoveredItem(null)}
           style={{
@@ -120,13 +135,14 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
               position: "absolute", bottom: "105%", left: "50%", transform: "translateX(-50%)",
               background: COLORS.paper, padding: "8px 14px", borderRadius: 8,
               boxShadow: `0 4px 15px ${COLORS.shadow}`, whiteSpace: "nowrap",
-              fontSize: "clamp(11px, 1.4vw, 14px)", fontFamily: "'Playfair Display', serif",
+              fontSize: boomerMode ? "clamp(14px, 1.8vw, 18px)" : "clamp(11px, 1.4vw, 14px)",
+              fontFamily: "'Playfair Display', serif",
               color: COLORS.ink, fontWeight: 600, border: `1px solid ${COLORS.warm}`,
               pointerEvents: "none",
             }}>
               {item.label}
               {boomerMode && (
-                <div style={{ fontSize: "clamp(9px,1.1vw,12px)", fontWeight: 400, fontFamily: "'Crimson Text', serif", color: COLORS.inkLight, marginTop: 3, whiteSpace: "normal", maxWidth: 200, textAlign: "center" }}>
+                <div style={{ fontSize: boomerMode ? "clamp(12px, 1.4vw, 15px)" : "clamp(9px,1.1vw,12px)", fontWeight: 400, fontFamily: "'Crimson Text', serif", color: COLORS.inkLight, marginTop: 3, whiteSpace: "normal", maxWidth: 240, textAlign: "center" }}>
                   {item.desc}
                 </div>
               )}
@@ -175,7 +191,7 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
           transition: "all 0.3s",
         }}
       >
-        {boomerMode ? "🔔" : "🔕"} Guide Mode {boomerMode ? "ON" : "OFF"}
+        {boomerMode ? "i" : "i"} Guide Mode {boomerMode ? "ON" : "OFF"}
       </button>
 
       {/* Customize button */}
@@ -192,6 +208,58 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
         Customize Room
       </button>
 
+      {/* Portrait quick switch */}
+      {showPortraitPicker && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 60, background: "rgba(20,10,5,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setShowPortraitPicker(false)}>
+          <div style={{
+            background: "#2c1f14", border: `2px solid ${COLORS.warm}40`, borderRadius: 18,
+            padding: "24px 26px", maxWidth: 520, width: "92%", boxShadow: `0 20px 60px rgba(0,0,0,0.6)` ,
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.warmLight, margin: 0, fontSize: 20 }}>
+                Choose Your Portrait
+              </h2>
+              <button onClick={() => setShowPortraitPicker(false)} style={{
+                background: "none", border: "none", color: COLORS.warmLight, fontSize: 22,
+                cursor: "pointer", lineHeight: 1, padding: 0,
+              }}>X</button>
+            </div>
+            <p style={{ fontFamily: "'Crimson Text', serif", color: COLORS.warm, fontSize: 13, margin: "0 0 18px", opacity: 0.8 }}>
+              Switch to your view to see notes and letters meant for you.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14 }}>
+              {members.map(member => {
+                const active = member.id === currentUser.id;
+                return (
+                  <button key={member.id} onClick={() => { setCurrentUser(member); setShowPortraitPicker(false); }} style={{
+                    background: active ? `linear-gradient(145deg, ${COLORS.warm}, ${COLORS.warmDark})` : COLORS.paper,
+                    border: active ? `3px solid ${COLORS.accent}` : `2px solid ${COLORS.warm}`,
+                    borderRadius: 14, padding: "16px 12px", cursor: "pointer",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                    transition: "all 0.2s",
+                  }}>
+                    <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={40} />
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 600, color: active ? COLORS.paper : COLORS.ink }}>{member.name}</span>
+                    <span style={{ fontSize: 11, color: active ? COLORS.cream : COLORS.inkLight, fontFamily: "'Crimson Text', serif" }}>{member.role}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => { setShowPortraitPicker(false); navigate("portrait"); }} style={{
+              marginTop: 16, width: "100%", padding: "10px 14px",
+              border: `1px solid ${COLORS.warm}`, borderRadius: 10,
+              background: "rgba(212,165,106,0.15)", color: COLORS.warmLight,
+              fontFamily: "'Playfair Display', serif", cursor: "pointer",
+            }}>
+              Open Portrait Gallery
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Customize panel */}
       {showCustomize && (
         <div style={{
@@ -201,7 +269,7 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
           <div style={{
             background: "#2c1f14", border: `2px solid ${COLORS.warm}40`, borderRadius: 18,
             padding: "28px 28px 24px", maxWidth: 440, width: "90%", maxHeight: "80vh",
-            overflowY: "auto", boxShadow: `0 20px 60px rgba(0,0,0,0.6)`,
+            overflowY: "auto", boxShadow: `0 20px 60px rgba(0,0,0,0.6)` ,
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontFamily: "'Playfair Display', serif", color: COLORS.warmLight, margin: 0, fontSize: 20 }}>
@@ -210,7 +278,7 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
               <button onClick={() => setShowCustomize(false)} style={{
                 background: "none", border: "none", color: COLORS.warmLight, fontSize: 22,
                 cursor: "pointer", lineHeight: 1, padding: 0,
-              }}>×</button>
+              }}>X</button>
             </div>
 
             <p style={{ fontFamily: "'Crimson Text', serif", color: COLORS.warm, fontSize: 13, margin: "0 0 18px", opacity: 0.8 }}>
@@ -232,7 +300,7 @@ export default function RoomScene({ navigate, currentUser, boomerMode, setBoomer
             <div style={{ borderBottom: `1px solid ${COLORS.warm}20`, margin: "18px 0 14px", paddingBottom: 4 }}>
               <span style={{ fontFamily: "'Playfair Display', serif", color: COLORS.warm, fontSize: 13, fontWeight: 600, letterSpacing: 0.5 }}>FAMILY MEMBERS</span>
             </div>
-            {FAMILY_MEMBERS.map(member => (
+            {members.map(member => (
               <FileInput key={member.id} spriteKey={member.id} label={`${member.name} (${member.role})`} />
             ))}
           </div>

@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
-import { FAMILY_MEMBERS } from "./data";
+import { DEFAULT_AVATARS, INITIAL_MEMBERS, INITIAL_NOTES, INITIAL_UPLOADS } from "./data";
 import RoomScene from "./RoomScene";
 import PortraitPage from "./PortraitPage";
 import CalendarPage from "./CalendarPage";
@@ -11,7 +11,10 @@ import LettersPage from "./LettersPage";
 
 export default function HeritageHome() {
   const [page, setPage] = useState("room");
-  const [currentUser, setCurrentUser] = useState(FAMILY_MEMBERS[4]); // Brian
+  const [members, setMembers] = useState(INITIAL_MEMBERS);
+  const [notes, setNotes] = useState(INITIAL_NOTES);
+  const [uploads, setUploads] = useState(INITIAL_UPLOADS);
+  const [currentUser, setCurrentUser] = useState(INITIAL_MEMBERS[4]); // Brian
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
   const [sprites, setSprites] = useState({});
@@ -19,6 +22,50 @@ export default function HeritageHome() {
   const navigate = (target) => {
     setTransition(true);
     setTimeout(() => { setPage(target); setTransition(false); }, 400);
+  };
+
+  const nextAvatar = useMemo(() => {
+    const used = new Set(members.map(member => member.avatar));
+    return DEFAULT_AVATARS.find(avatar => !used.has(avatar)) || DEFAULT_AVATARS[0];
+  }, [members]);
+
+  const addMember = ({ name, generation, role, parentId }) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return null;
+    const gen = Number(generation) || 1;
+    const newMember = {
+      id: `m-${Date.now().toString(36)}`,
+      name: trimmedName,
+      role: role?.trim() || (gen === 1 ? "Elder" : gen === 2 ? "Parent" : gen === 3 ? "Child" : "Family"),
+      avatar: nextAvatar,
+      born: null,
+      parentId: parentId || null,
+      generation: gen,
+    };
+    setMembers(prev => [...prev, newMember]);
+    return newMember;
+  };
+
+  const addNote = (note) => {
+    setNotes(prev => [
+      {
+        ...note,
+        id: `n-${Date.now().toString(36)}`,
+        createdAt: new Date().toISOString().split("T")[0],
+      },
+      ...prev,
+    ]);
+  };
+
+  const addUpload = (upload) => {
+    setUploads(prev => [
+      {
+        ...upload,
+        id: `u-${Date.now().toString(36)}`,
+        date: new Date().toISOString().split("T")[0],
+      },
+      ...prev,
+    ]);
   };
 
   const updateSprite = (key, file) => {
@@ -29,7 +76,21 @@ export default function HeritageHome() {
     });
   };
 
-  const pageProps = { navigate, currentUser, setCurrentUser, boomerMode, setBoomerMode, sprites, updateSprite };
+  const pageProps = {
+    navigate,
+    currentUser,
+    setCurrentUser,
+    boomerMode,
+    setBoomerMode,
+    sprites,
+    updateSprite,
+    members,
+    notes,
+    uploads,
+    addMember,
+    addNote,
+    addUpload,
+  };
 
   return (
     <div style={{
