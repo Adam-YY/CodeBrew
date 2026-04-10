@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { COLORS } from "./colors";
 import { DEFAULT_AVATARS, INITIAL_MEMBERS, INITIAL_NOTES, INITIAL_UPLOADS } from "./data";
 import RoomScene from "./RoomScene";
@@ -9,15 +9,23 @@ import CassettePage from "./CassettePage";
 import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
 
+import { getFamilyMembers } from "@/supabase/queries/relations";
+import { createPerson } from "@/supabase/queries/person";
+import { supabase } from "@/supabase/client";
+
 export default function HeritageHome() {
   const [page, setPage] = useState("room");
-  const [members, setMembers] = useState(INITIAL_MEMBERS);
-  const [notes, setNotes] = useState(INITIAL_NOTES);
-  const [uploads, setUploads] = useState(INITIAL_UPLOADS);
-  const [currentUser, setCurrentUser] = useState(INITIAL_MEMBERS[4]); // Brian
+  const [members, setMembers] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [uploads, setUploads] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  const [loading, setLoading] = useState(true);
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
   const [sprites, setSprites] = useState({});
+
+  const [familyId, setFamilyId] = useState("bd1af34e-76cc-4bad-a302-c090957ad6d8"); //temporary
 
   const navigate = (target) => {
     setTransition(true);
@@ -90,7 +98,86 @@ export default function HeritageHome() {
     addMember,
     addNote,
     addUpload,
+    familyId,
   };
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        console.log("Loading family data...");
+
+        const familyMembers = await getFamilyMembers(familyId);
+
+        console.log("Raw DB members:", familyMembers);
+
+        const mappedMembers = familyMembers.map((m, index) => ({
+          id: m.id,
+          name: `${m.first_name} ${m.last_name}`,
+          avatar: DEFAULT_AVATARS[index % DEFAULT_AVATARS.length],
+          role: "Family",
+          born: m.date_of_birth,
+          parentId: null,
+          generation: m.generation || 1,
+        }));
+
+        console.log("Mapped members:", mappedMembers);
+
+        setMembers(mappedMembers);
+
+        const firstUser = mappedMembers[0] || null;
+        setCurrentUser(firstUser);
+
+        console.log("Current user:", firstUser);
+
+        // load uploads AFTER user is ready
+        const { data, error } = await supabase
+          .from("message")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Upload fetch error:", error);
+        } else {
+          console.log("Messages:", data);
+          setUploads(data || []);
+        }
+
+      } catch (err) {
+        console.error("Error loading data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadUploads = async () => {
+      if (!currentUser) return;
+
+      console.log("📦 Loading uploads/messages...");
+
+      const { data, error } = await supabase
+        .from("message")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Upload fetch error:", error);
+        return;
+      }
+
+      console.log("📦 Messages from DB:", data);
+      setUploads(data || []);
+    };
+
+    loadUploads();
+  }, [currentUser]);
+
+  if (loading || !currentUser) {
+    return <div style={{ padding: 40 }}>Loading family data...</div>;
+  }
 
   return (
     <div style={{

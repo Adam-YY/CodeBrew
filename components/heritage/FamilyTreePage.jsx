@@ -2,46 +2,87 @@
 import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer, SpriteImg } from "./shared";
+import { createPerson } from "@/supabase/queries/person";
 
 
-export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes,addMember }) {
+export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes, addMember, familyId}) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const [newGen, setNewGen] = useState("3");
   const [newRole, setNewRole] = useState("");
   const [newParent, setNewParent] = useState("");
+  const [newGender, setNewGender] = useState("M");
+  const [newDOB, setNewDOB] = useState("");
 
   const generations = useMemo(() => {
+    console.log("members:", members);
+    if (!members || members.length === 0) return [];
+
     const grouped = members.reduce((acc, member) => {
-      const gen = member.generation || 1;
-      if (!acc[gen]) acc[gen] = [];
-      acc[gen].push(member);
+      // Force conversion to number and handle potential undefined/null
+      const genValue = parseInt(member.generation, 10) || 1;
+      console.log(`Processing member: ${member.name}, generation: ${member.generation} (parsed: ${genValue})`);
+      
+      if (!acc[genValue]) acc[genValue] = [];
+      acc[genValue].push(member);
       return acc;
     }, {});
-    return Object.keys(grouped)
-      .map(g => Number(g))
-      .sort((a, b) => a - b)
-      .map(g => ({ generation: g, members: grouped[g] }));
+
+    const keys = Object.keys(grouped).map(Number);
+    // If no keys exist, default to 1
+    const maxGen = keys.length > 0 ? Math.max(...keys) : 1;
+    
+    return Array.from({ length: maxGen }, (_, i) => ({
+      generation: i + 1,
+      members: grouped[i + 1] || []
+    }));
   }, [members]);
 
   const getMember = (id) => members.find(m => m.id === id);
 
   const memberNotes = selectedMember ? notes.filter(n => n.from === selectedMember.id) : [];
 
-  const handleAddMember = () => {
-    const created = addMember({
-      name: newName,
-      generation: newGen,
-      role: newRole,
-      parentId: newParent || null,
-    });
-    if (created) {
-      setNewName("");
+  const handleAddMember = async () => {
+    try {
+
+      const created = await createPerson({
+        first_name: newFirstName,
+        last_name: newLastName,
+        generation: Number(newGen) || 1,
+        date_of_birth: newDOB || null,
+        gender: newGender,
+        family_id: familyId,
+      });
+
+      console.log("DB created:", created);
+
+
+      // update UI instantly (optimistic update)
+      setShowAdd(false);
+      setNewFirstName("");
+      setNewLastName("");
       setNewGen("3");
       setNewRole("");
       setNewParent("");
-      setShowAdd(false);
+      setNewGender("M");
+      setNewDOB("");
+
+      // IMPORTANT: update parent state
+      // (need to pass setMembers OR refetch from index)
+      addMember?.({
+        id: created.id,
+        name: `${created.first_name} ${created.last_name}`,
+        avatar: newGender === "M" ? "👨" : "👩",
+        role: newRole || "Family",
+        born: created.date_of_birth,
+        parentId: newParent || null,
+        generation: Number(created.generation),
+      });
+
+    } catch (err) {
+      console.error("handleAddMember failed:", err);
     }
   };
 
@@ -62,37 +103,82 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
       </div>
 
       <div style={{
-        background: COLORS.paper, borderRadius: 16, padding: "24px 18px",
-        border: `1px solid ${COLORS.warm}40`, overflowX: "auto",
+        background: COLORS.paper, 
+        borderRadius: 16, 
+        padding: "32px 24px",
+        border: `1px solid ${COLORS.warm}40`, 
+        overflowX: "auto",
+        boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
       }}>
-        <div style={{ display: "flex", gap: 24, minWidth: "max-content" }}>
+        <div style={{ display: "flex", gap: 40, minWidth: "max-content", alignItems: "flex-start" }}>
           {generations.map(gen => (
-            <div key={gen.generation} style={{ minWidth: 220 }}>
+            <div key={gen.generation} style={{ width: 220, flexShrink: 0 }}>
+              {/* Generation Header */}
               <div style={{
-                fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600,
-                marginBottom: 12, color: COLORS.ink,
+                fontFamily: "'Playfair Display', serif", 
+                fontSize: 14, 
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                marginBottom: 20, 
+                color: COLORS.accent,
+                borderBottom: `1px solid ${COLORS.warm}40`,
+                paddingBottom: 8
               }}>
-                Generation {gen.generation}
+                Gen {gen.generation}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {gen.members.map(member => {
-                  const active = selectedMember?.id === member.id;
-                  return (
-                    <button key={member.id} onClick={() => setSelectedMember(member)} style={{
-                      background: active ? COLORS.warm : "#fff9f0",
-                      border: active ? `2px solid ${COLORS.accent}` : `1px solid ${COLORS.warm}40`,
-                      borderRadius: 12, padding: "10px 12px", cursor: "pointer",
-                      display: "flex", alignItems: "center", gap: 10, textAlign: "left",
-                      transition: "all 0.2s",
-                    }}>
-                      <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={28} />
-                      <div>
-                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 600, color: active ? COLORS.paper : COLORS.ink }}>{member.name}</div>
-                        <div style={{ fontSize: 11, color: active ? COLORS.paper : COLORS.inkLight }}>{member.role}</div>
-                      </div>
-                    </button>
-                  );
-                })}
+
+              {/* Members List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {gen.members.length === 0 ? (
+                  <div style={{ fontSize: 12, color: COLORS.inkLight, fontStyle: "italic", padding: "10px" }}>
+                    No members
+                  </div>
+                ) : (
+                  gen.members.map(member => {
+                    const active = selectedMember?.id === member.id;
+                    return (
+                      <button 
+                        key={member.id} 
+                        onClick={() => setSelectedMember(member)} 
+                        style={{
+                          background: active ? COLORS.accent : "#ffffff",
+                          border: `1px solid ${active ? COLORS.accent : COLORS.warm + "40"}`,
+                          borderRadius: 12, 
+                          padding: "12px", 
+                          cursor: "pointer",
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: 12, 
+                          textAlign: "left",
+                          transition: "all 0.2s ease",
+                          boxShadow: active ? `0 4px 12px ${COLORS.accent}40` : "0 2px 4px rgba(0,0,0,0.03)",
+                          width: "100%"
+                        }}
+                      >
+                        <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={32} />
+                        <div style={{ overflow: "hidden" }}>
+                          <div style={{ 
+                            fontFamily: "'Playfair Display', serif", 
+                            fontSize: 13, 
+                            fontWeight: 600, 
+                            color: active ? COLORS.paper : COLORS.ink,
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis"
+                          }}>
+                            {member.name}
+                          </div>
+                          <div style={{ 
+                            fontSize: 11, 
+                            color: active ? COLORS.paper + "CC" : COLORS.inkLight 
+                          }}>
+                            {member.role || "Family Member"}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           ))}
@@ -159,12 +245,48 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
             </div>
             <div style={{ display: "grid", gap: 12 }}>
               <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Name
-                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Kai Chen" style={{
+                First Name
+                <input value={newFirstName} onChange={(e) => setNewFirstName(e.target.value)} placeholder="e.g. Kai" style={{
                   width: "100%", marginTop: 6, padding: "8px 10px",
                   borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
                   fontFamily: "'Crimson Text', serif",
                 }} />
+              </label>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Last Name
+                <input value={newLastName} onChange={(e) => setNewLastName(e.target.value)} placeholder="e.g. Chen" style={{
+                  width: "100%", marginTop: 6, padding: "8px 10px",
+                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
+                  fontFamily: "'Crimson Text', serif",
+                }} />
+              </label>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Gender
+                <select value={newGender} onChange={(e) => setNewGender(e.target.value)} style={{
+                  width: "100%", marginTop: 6, padding: "8px 10px",
+                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
+                  fontFamily: "'Crimson Text', serif",
+                }}>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                </select>
+              </label>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Date of Birth
+                <input 
+                  type="date" 
+                  value={newDOB} 
+                  onChange={(e) => setNewDOB(e.target.value)} 
+                  style={{
+                    width: "100%", 
+                    marginTop: 6, 
+                    padding: "8px 10px",
+                    borderRadius: 10, 
+                    border: `1px solid ${COLORS.warm}40`,
+                    fontFamily: "'Crimson Text', serif",
+                    boxSizing: "border-box" // Ensures padding doesn't break width
+                  }} 
+                />
               </label>
               <label style={{ fontSize: 12, color: COLORS.inkLight }}>
                 Generation
