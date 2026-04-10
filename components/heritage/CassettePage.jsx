@@ -1,44 +1,64 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
-import { getMember } from "./data";
 import { PageContainer } from "./shared";
 
-export default function CassettePage({ navigate, currentUser, boomerMode }) {
+export default function CassettePage({ navigate, currentUser, boomerMode, uploads, addUpload, members }) {
   const [uploadType, setUploadType] = useState("document");
-  const [uploads, setUploads] = useState([
-    { type: "document", name: "Grandma's Dumpling Recipe.pdf", from: "gm", date: "2024-12-01" },
-    { type: "voice", name: "Grandpa's story about Melbourne.mp3", from: "gf", date: "2024-11-15" },
-    { type: "video", name: "2024 CNY Family Dinner.mp4", from: "dad", date: "2024-02-10" },
-  ]);
+  const [file, setFile] = useState(null);
+  const [title, setTitle] = useState("");
+  const [recipient, setRecipient] = useState("all");
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const typeIcons = { document: "📄", voice: "🎙️", video: "🎞️" };
+  const typeColors = { document: COLORS.green, voice: COLORS.accent, video: COLORS.warmDark };
+  const accepts = {
+    document: ".pdf,.txt,.doc,.docx,image/*",
+    voice: "audio/*",
+    video: "video/*",
+  };
+
+  const visibleUploads = useMemo(() => {
+    return uploads.filter(u => u.to === "all" || u.to === currentUser.id || u.from === currentUser.id);
+  }, [uploads, currentUser.id]);
+
+  const getMember = (id) => members.find(m => m.id === id);
+
   const handleUpload = () => {
-    setUploads(prev => [...prev, {
+    if (!file && !title.trim()) return;
+    const name = title.trim() || file?.name || `New ${uploadType}`;
+    const url = file ? URL.createObjectURL(file) : "";
+    addUpload({
       type: uploadType,
-      name: `New ${uploadType} from ${currentUser.name}`,
+      name,
       from: currentUser.id,
-      date: new Date().toISOString().split("T")[0],
-    }]);
+      to: recipient,
+      url,
+      fileType: file?.type || "",
+    });
+    setFile(null);
+    setTitle("");
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 2000);
   };
 
-  const typeIcons = { document: "📄", voice: "🎙️", video: "🎬" };
-  const typeColors = { document: COLORS.green, voice: COLORS.accent, video: COLORS.warmDark };
+  const formatRecipient = (value) => {
+    if (value === "all") return "Everyone";
+    return getMember(value)?.name || "Family";
+  };
 
   return (
     <PageContainer navigate={navigate} title="Cassette Player" boomerMode={boomerMode}
-      description="Upload documents, voice recordings, or videos to share with your family. Choose the type of media, then tap 'Upload' to add it.">
+      description="Upload documents, voice recordings, or videos to share with your family. Choose the type of media, select who it is for, and tap Upload.">
 
       {/* Cassette visual */}
       <div style={{
         background: "#2c1810", borderRadius: 20, padding: "30px 24px", margin: "0 auto 32px",
-        maxWidth: 420, border: "3px solid #5a3a28", position: "relative",
+        maxWidth: 520, border: "3px solid #5a3a28", position: "relative",
         boxShadow: `0 8px 30px rgba(0,0,0,0.3)`,
       }}>
         <div style={{ textAlign: "center", fontFamily: "'Caveat', cursive", color: COLORS.warm, fontSize: 22, marginBottom: 16, letterSpacing: 1 }}>
-          ⏺ Family Memories Recorder
+          Family Memories Recorder
         </div>
         {/* Reels */}
         <div style={{ display: "flex", justifyContent: "center", gap: 40, marginBottom: 20 }}>
@@ -56,7 +76,7 @@ export default function CassettePage({ navigate, currentUser, boomerMode }) {
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
         {/* Type selector */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
           {["document", "voice", "video"].map(type => (
             <button key={type} onClick={() => setUploadType(type)} style={{
               background: uploadType === type ? COLORS.warm : "rgba(212,165,106,0.15)",
@@ -69,6 +89,40 @@ export default function CassettePage({ navigate, currentUser, boomerMode }) {
               {typeIcons[type]} {type.charAt(0).toUpperCase() + type.slice(1)}
             </button>
           ))}
+        </div>
+
+        {/* Upload form */}
+        <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
+          <label style={{ fontSize: 12, color: COLORS.warmLight, fontFamily: "'Crimson Text', serif" }}>
+            Share with
+            <select value={recipient} onChange={(e) => setRecipient(e.target.value)} style={{
+              width: "100%", marginTop: 6, padding: "8px 10px",
+              borderRadius: 10, border: `1px solid ${COLORS.warm}60`,
+              background: "#1f140c", color: COLORS.warmLight, fontFamily: "'Crimson Text', serif",
+            }}>
+              <option value="all">Everyone</option>
+              {members.map(member => (
+                <option key={member.id} value={member.id}>{member.name}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: 12, color: COLORS.warmLight, fontFamily: "'Crimson Text', serif" }}>
+            Title (optional)
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give this memory a title" style={{
+              width: "100%", marginTop: 6, padding: "8px 10px",
+              borderRadius: 10, border: `1px solid ${COLORS.warm}60`,
+              background: "#1f140c", color: COLORS.warmLight, fontFamily: "'Crimson Text', serif",
+            }} />
+          </label>
+          <label style={{ fontSize: 12, color: COLORS.warmLight, fontFamily: "'Crimson Text', serif" }}>
+            Upload file
+            <input
+              type="file"
+              accept={accepts[uploadType]}
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              style={{ display: "block", marginTop: 6, color: COLORS.warmLight }}
+            />
+          </label>
         </div>
 
         {/* Upload button */}
@@ -88,29 +142,50 @@ export default function CassettePage({ navigate, currentUser, boomerMode }) {
           <div style={{
             textAlign: "center", color: COLORS.greenLight, marginTop: 10,
             fontFamily: "'Caveat', cursive", fontSize: 18,
-          }}>✓ Uploaded successfully!</div>
+          }}>Uploaded successfully!</div>
         )}
       </div>
 
       {/* Uploads list */}
       <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, textAlign: "center", marginBottom: 16 }}>Family Archive</h3>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {uploads.map((u, i) => {
+        {visibleUploads.map((u) => {
           const from = getMember(u.from);
+          const toName = formatRecipient(u.to);
+          const isImage = u.fileType?.startsWith("image/");
+          const isAudio = u.fileType?.startsWith("audio/");
+          const isVideo = u.fileType?.startsWith("video/");
           return (
-            <div key={i} style={{
-              display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
+            <div key={u.id} style={{
+              display: "grid", gap: 8, padding: "14px 18px",
               background: COLORS.paper, borderRadius: 12, border: `1px solid ${COLORS.warm}30`,
             }}>
-              <span style={{ fontSize: 26 }}>{typeIcons[u.type]}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.ink }}>{u.name}</div>
-                <div style={{ fontSize: 12, color: COLORS.inkLight }}>By {from?.name} · {u.date}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ fontSize: 26 }}>{typeIcons[u.type]}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.ink }}>{u.name}</div>
+                  <div style={{ fontSize: 12, color: COLORS.inkLight }}>
+                    From {from?.name || "Family"} to {toName} • {u.date}
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 11, background: `${typeColors[u.type]}18`, color: typeColors[u.type],
+                  padding: "3px 10px", borderRadius: 20, fontWeight: 600,
+                }}>{u.type}</span>
               </div>
-              <span style={{
-                fontSize: 11, background: `${typeColors[u.type]}18`, color: typeColors[u.type],
-                padding: "3px 10px", borderRadius: 20, fontWeight: 600,
-              }}>{u.type}</span>
+              {u.url && isImage && (
+                <img src={u.url} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 10 }} />
+              )}
+              {u.url && isAudio && (
+                <audio controls style={{ width: "100%" }}>
+                  <source src={u.url} />
+                </audio>
+              )}
+              {u.url && isVideo && (
+                <video controls style={{ width: "100%", borderRadius: 10 }}>
+                  <source src={u.url} />
+                </video>
+              )}
             </div>
           );
         })}

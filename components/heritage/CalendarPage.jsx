@@ -2,13 +2,16 @@
 import { useState } from "react";
 import { COLORS } from "./colors";
 import { NOTES, getMember } from "./data";
-import { PageContainer, SpriteImg } from "./shared";
+import { PageContainer } from "./shared";
 
-export default function CalendarPage({ navigate, currentUser, boomerMode, sprites }) {
+export default function CalendarPage({ navigate, currentUser, boomerMode }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
+  const [showDayModal, setShowDayModal] = useState(false);
   const year = 2026;
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  const getMember = (id) => members.find(m => m.id === id);
 
   const daysInMonth = new Date(year, selectedMonth + 1, 0).getDate();
   const firstDay = new Date(year, selectedMonth, 1).getDay();
@@ -17,7 +20,7 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, sprite
   const getNotesForDay = (day) => {
     const mm = String(selectedMonth + 1).padStart(2, "0");
     const dd = String(day).padStart(2, "0");
-    return NOTES.filter(n => n.date === `${mm}-${dd}`);
+    return notes.filter(n => n.eventDate === `${mm}-${dd}` && (n.to === currentUser.id || n.to === "all"));
   };
 
   const allMonthNotes = days.flatMap(d => getNotesForDay(d).map(n => ({ ...n, day: d })));
@@ -28,9 +31,23 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, sprite
 
       {/* Month selector */}
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginBottom: 24 }}>
-        <button onClick={() => setSelectedMonth(Math.max(0, selectedMonth - 1))} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: COLORS.ink }}>‹</button>
+        <button
+          onClick={() => {
+            setSelectedMonth(Math.max(0, selectedMonth - 1));
+            setSelectedDay(null);
+            setShowDayModal(false);
+          }}
+          style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: COLORS.ink }}
+        >{"<"}</button>
         <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 600, minWidth: 160, textAlign: "center" }}>{months[selectedMonth]} {year}</span>
-        <button onClick={() => setSelectedMonth(Math.min(11, selectedMonth + 1))} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: COLORS.ink }}>›</button>
+        <button
+          onClick={() => {
+            setSelectedMonth(Math.min(11, selectedMonth + 1));
+            setSelectedDay(null);
+            setShowDayModal(false);
+          }}
+          style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: COLORS.ink }}
+        >{">"}</button>
       </div>
 
       {/* Calendar grid */}
@@ -50,7 +67,11 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, sprite
             const hasNotes = dayNotes.length > 0;
             const isSelected = selectedDay === day;
             return (
-              <button key={day} onClick={() => setSelectedDay(isSelected ? null : day)} style={{
+              <button key={day} onClick={() => {
+                if (!hasNotes) return;
+                setSelectedDay(isSelected ? null : day);
+                setShowDayModal(!isSelected);
+              }} style={{
                 background: isSelected ? COLORS.warm : hasNotes ? `${COLORS.warm}15` : "transparent",
                 border: hasNotes ? `1px solid ${COLORS.warm}50` : "1px solid transparent",
                 borderRadius: 10, padding: "8px 4px", cursor: hasNotes ? "pointer" : "default",
@@ -66,33 +87,46 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, sprite
         </div>
       </div>
 
-      {/* Selected day notes */}
-      {selectedDay && getNotesForDay(selectedDay).length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 14 }}>
-            {months[selectedMonth]} {selectedDay}
-          </h3>
-          {getNotesForDay(selectedDay).map(note => {
-            const from = getMember(note.from);
-            return (
-              <div key={note.id} style={{
-                background: COLORS.paper, border: `1px solid ${COLORS.warm}40`,
-                borderRadius: 14, padding: 20, marginBottom: 12,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  {from && <SpriteImg src={sprites[from.id]} fallback={from.avatar} size={22} />}
-                  <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>{from?.name}</span>
+      {/* Selected day modal */}
+      {showDayModal && selectedDay && getNotesForDay(selectedDay).length > 0 && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,10,5,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => { setShowDayModal(false); setSelectedDay(null); }}>
+          <div style={{
+            background: COLORS.paper, borderRadius: 16, padding: "22px 24px",
+            maxWidth: 640, width: "92%", boxShadow: `0 20px 60px rgba(0,0,0,0.4)`,
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, margin: 0 }}>
+                {months[selectedMonth]} {selectedDay}
+              </h3>
+              <button onClick={() => { setShowDayModal(false); setSelectedDay(null); }} style={{
+                background: "none", border: "none", fontSize: 20, cursor: "pointer", color: COLORS.ink,
+              }}>{"✕"}</button>
+            </div>
+            {getNotesForDay(selectedDay).map(note => {
+              const from = getMember(note.from);
+              return (
+                <div key={note.id} style={{
+                  background: "#fff9f0", border: `1px solid ${COLORS.warm}40`,
+                  borderRadius: 14, padding: 16, marginBottom: 10,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    {from && <SpriteImg src={sprites[from.id]} fallback={from.avatar} size={20} />}
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>{from?.name}</span>
+                  </div>
+                  <h4 style={{ fontFamily: "'Playfair Display', serif", margin: "0 0 6px", fontSize: 16 }}>{note.title}</h4>
+                  <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.inkLight, margin: 0 }}>{note.content}</p>
                 </div>
-                <h4 style={{ fontFamily: "'Playfair Display', serif", margin: "0 0 6px", fontSize: 16 }}>{note.title}</h4>
-                <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.inkLight, margin: 0 }}>{note.content}</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* All events this month */}
-      {allMonthNotes.length > 0 && !selectedDay && (
+      {allMonthNotes.length > 0 && !showDayModal && !selectedDay && (
         <div style={{ marginTop: 24 }}>
           <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 14 }}>This Month's Events</h3>
           {allMonthNotes.map((note, i) => (
@@ -100,7 +134,7 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, sprite
               display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
               background: COLORS.paper, borderRadius: 10, marginBottom: 8,
               border: `1px solid ${COLORS.warm}30`, cursor: "pointer",
-            }} onClick={() => setSelectedDay(note.day)}>
+            }} onClick={() => { setSelectedDay(note.day); setShowDayModal(true); }}>
               <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 18, color: COLORS.warm, minWidth: 30, textAlign: "center" }}>{note.day}</span>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{note.title}</div>

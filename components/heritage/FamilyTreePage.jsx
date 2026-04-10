@@ -1,89 +1,108 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
-import { FAMILY_TREE, NOTES, getMember } from "./data";
 import { PageContainer, SpriteImg } from "./shared";
 
-export default function FamilyTreePage({ navigate, currentUser, boomerMode, sprites }) {
+
+export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes,addMember }) {
   const [selectedMember, setSelectedMember] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newGen, setNewGen] = useState("3");
+  const [newRole, setNewRole] = useState("");
+  const [newParent, setNewParent] = useState("");
 
-  const PersonBubble = ({ member, onClick, isSelected }) => (
-    <button onClick={onClick} style={{
-      background: isSelected ? COLORS.warm : COLORS.paper,
-      border: isSelected ? `2px solid ${COLORS.accent}` : `2px solid ${COLORS.warm}60`,
-      borderRadius: 14, padding: "10px 14px", cursor: "pointer",
-      display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-      transition: "all 0.3s", minWidth: 80,
-      boxShadow: isSelected ? `0 4px 15px ${COLORS.shadow}` : "none",
-      transform: isSelected ? "scale(1.08)" : "scale(1)",
-    }}
-    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.transform = "scale(1.05)" }}
-    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.transform = "scale(1)" }}
-    >
-      <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={30} />
-      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 11, fontWeight: 600, color: isSelected ? COLORS.paper : COLORS.ink }}>{member.name}</span>
-    </button>
-  );
+  const generations = useMemo(() => {
+    const grouped = members.reduce((acc, member) => {
+      const gen = member.generation || 1;
+      if (!acc[gen]) acc[gen] = [];
+      acc[gen].push(member);
+      return acc;
+    }, {});
+    return Object.keys(grouped)
+      .map(g => Number(g))
+      .sort((a, b) => a - b)
+      .map(g => ({ generation: g, members: grouped[g] }));
+  }, [members]);
 
-  const TreeNode = ({ id, spouse, children: kids, depth = 0 }) => {
-    const member = getMember(id);
-    const spouseMember = spouse ? getMember(spouse) : null;
-    if (!member) return null;
+  const getMember = (id) => members.find(m => m.id === id);
 
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        {/* Couple row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <PersonBubble member={member} onClick={() => setSelectedMember(member)} isSelected={selectedMember?.id === member.id} />
-          {spouseMember && (
-            <>
-              <div style={{ width: 20, height: 2, background: COLORS.warm }} />
-              <PersonBubble member={spouseMember} onClick={() => setSelectedMember(spouseMember)} isSelected={selectedMember?.id === spouseMember.id} />
-            </>
-          )}
-        </div>
-        {/* Children */}
-        {kids && kids.length > 0 && (
-          <>
-            <div style={{ width: 2, height: 24, background: COLORS.warm, opacity: 0.4 }} />
-            <div style={{ display: "flex", gap: "clamp(16px, 4vw, 40px)", position: "relative" }}>
-              {kids.length > 1 && (
-                <div style={{
-                  position: "absolute", top: -12, left: "25%", right: "25%",
-                  height: 2, background: COLORS.warm, opacity: 0.4,
-                }} />
-              )}
-              {kids.map(child => (
-                <div key={child.id} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  {kids.length > 1 && <div style={{ width: 2, height: 12, background: COLORS.warm, opacity: 0.4, marginTop: -12 }} />}
-                  <TreeNode {...child} depth={depth + 1} />
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    );
+  const memberNotes = selectedMember ? notes.filter(n => n.from === selectedMember.id) : [];
+
+  const handleAddMember = () => {
+    const created = addMember({
+      name: newName,
+      generation: newGen,
+      role: newRole,
+      parentId: newParent || null,
+    });
+    if (created) {
+      setNewName("");
+      setNewGen("3");
+      setNewRole("");
+      setNewParent("");
+      setShowAdd(false);
+    }
   };
 
-  const memberNotes = selectedMember ? NOTES.filter(n => n.from === selectedMember.id) : [];
-
   return (
-    <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMode}
-      description="This is your family tree. Tap on any family member to see all the notes and messages they have left for the family.">
+    <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMod}
+      description="Browse family members by generation. Tap a person to see the notes they have left for the family. Use the plus button to add new family members.">
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600 }}>Family Generations</div>
+          <div style={{ fontSize: 13, color: COLORS.inkLight }}>Scroll to see every generation in your family.</div>
+        </div>
+        <button onClick={() => setShowAdd(true)} style={{
+          background: COLORS.accent, color: COLORS.paper, border: "none", borderRadius: 12,
+          padding: "10px 16px", cursor: "pointer", fontFamily: "'Playfair Display', serif",
+          fontSize: 14, fontWeight: 600,
+        }}>+ Add Member</button>
+      </div>
 
       <div style={{
-        background: COLORS.paper, borderRadius: 16, padding: "32px 16px",
-        border: `1px solid ${COLORS.warm}40`, display: "flex", justifyContent: "center",
-        overflowX: "auto",
+        background: COLORS.paper, borderRadius: 16, padding: "24px 18px",
+        border: `1px solid ${COLORS.warm}40`, overflowX: "auto",
       }}>
-        <TreeNode {...FAMILY_TREE} />
+        <div style={{ display: "flex", gap: 24, minWidth: "max-content" }}>
+          {generations.map(gen => (
+            <div key={gen.generation} style={{ minWidth: 220 }}>
+              <div style={{
+                fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600,
+                marginBottom: 12, color: COLORS.ink,
+              }}>
+                Generation {gen.generation}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {gen.members.map(member => {
+                  const active = selectedMember?.id === member.id;
+                  return (
+                    <button key={member.id} onClick={() => setSelectedMember(member)} style={{
+                      background: active ? COLORS.warm : "#fff9f0",
+                      border: active ? `2px solid ${COLORS.accent}` : `1px solid ${COLORS.warm}40`,
+                      borderRadius: 12, padding: "10px 12px", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 10, textAlign: "left",
+                      transition: "all 0.2s",
+                    }}>
+                      <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={28} />
+                      <div>
+                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 600, color: active ? COLORS.paper : COLORS.ink }}>{member.name}</div>
+                        <div style={{ fontSize: 11, color: active ? COLORS.paper : COLORS.inkLight }}>{member.role}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {selectedMember && (
         <div style={{ marginTop: 28 }}>
           <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, textAlign: "center", marginBottom: 6 }}>
-            <SpriteImg src={sprites[selectedMember.id]} fallback={selectedMember.avatar} size={20} style={{ verticalAlign: "middle", marginRight: 6 }} /> Notes by {selectedMember.name}
+            <span style={{ fontSize: 20, lineHeight: 1, verticalAlign: "middle", marginRight: 6 }}>{selectedMember.avatar}</span> Notes by {selectedMember.name}
           </h3>
           <p style={{ textAlign: "center", fontSize: 13, color: COLORS.inkLight, marginBottom: 20 }}>
             {memberNotes.length} note{memberNotes.length !== 1 ? "s" : ""} left for the family
@@ -102,7 +121,7 @@ export default function FamilyTreePage({ navigate, currentUser, boomerMode, spri
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontSize: 12, color: COLORS.inkLight, display: "flex", alignItems: "center", gap: 4 }}>
                         To: {toMember
-                          ? <><SpriteImg src={sprites[toMember.id]} fallback={toMember.avatar} size={14} /> {toMember.name}</>
+                          ? <><span style={{ fontSize: 14, lineHeight: 1 }}>{toMember.avatar}</span> {toMember.name}</>
                           : "👨‍👩‍👧‍👦 Everyone"}
                       </span>
                       <span style={{
@@ -110,7 +129,7 @@ export default function FamilyTreePage({ navigate, currentUser, boomerMode, spri
                         background: note.type === "tradition" ? `${COLORS.green}22` : note.type === "letter" ? `${COLORS.accent}22` : `${COLORS.warm}22`,
                         color: note.type === "tradition" ? COLORS.green : note.type === "letter" ? COLORS.accent : COLORS.warmDark,
                       }}>
-                        {note.type === "tradition" ? "🎋 Tradition" : note.type === "letter" ? "💌 Letter" : "📦 Heirloom"}
+                        {note.type === "tradition" ? "Tradition" : note.type === "letter" ? "Letter" : "Heirloom"}
                       </span>
                     </div>
                     <h4 style={{ fontFamily: "'Playfair Display', serif", margin: "0 0 6px", fontSize: 16 }}>{note.title}</h4>
@@ -120,6 +139,77 @@ export default function FamilyTreePage({ navigate, currentUser, boomerMode, spri
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {showAdd && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,10,5,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setShowAdd(false)}>
+          <div style={{
+            background: COLORS.paper, borderRadius: 16, padding: "22px 24px",
+            maxWidth: 520, width: "92%", boxShadow: `0 20px 60px rgba(0,0,0,0.4)`,
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, margin: 0 }}>Add New Family Member</h3>
+              <button onClick={() => setShowAdd(false)} style={{
+                background: "none", border: "none", fontSize: 20, cursor: "pointer", color: COLORS.ink,
+              }}>{"✕"}</button>
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Name
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Kai Chen" style={{
+                  width: "100%", marginTop: 6, padding: "8px 10px",
+                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
+                  fontFamily: "'Crimson Text', serif",
+                }} />
+              </label>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Generation
+                <select value={newGen} onChange={(e) => setNewGen(e.target.value)} style={{
+                  width: "100%", marginTop: 6, padding: "8px 10px",
+                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
+                  fontFamily: "'Crimson Text', serif",
+                }}>
+                  <option value="1">Generation 1</option>
+                  <option value="2">Generation 2</option>
+                  <option value="3">Generation 3</option>
+                  <option value="4">Generation 4</option>
+                </select>
+              </label>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Role (optional)
+                <input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="e.g. Aunt, Cousin" style={{
+                  width: "100%", marginTop: 6, padding: "8px 10px",
+                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
+                  fontFamily: "'Crimson Text', serif",
+                }} />
+              </label>
+              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
+                Parent (optional)
+                <select value={newParent} onChange={(e) => setNewParent(e.target.value)} style={{
+                  width: "100%", marginTop: 6, padding: "8px 10px",
+                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
+                  fontFamily: "'Crimson Text', serif",
+                }}>
+                  <option value="">No parent selected</option>
+                  {members.map(member => (
+                    <option key={member.id} value={member.id}>{member.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button onClick={handleAddMember} style={{
+              marginTop: 16, width: "100%", padding: "10px 14px",
+              border: "none", borderRadius: 10, background: COLORS.accent,
+              color: COLORS.paper, fontFamily: "'Playfair Display', serif", cursor: "pointer",
+              fontSize: 15, fontWeight: 600,
+            }}>
+              Add Member
+            </button>
+          </div>
         </div>
       )}
     </PageContainer>
