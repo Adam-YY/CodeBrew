@@ -1,0 +1,17 @@
+export const COLORS = {
+  bg: "#1a1410",
+  warm: "#d4a56a",
+  warmLight: "#e8c99b",
+  warmDark: "#8b6914",
+  cream: "#f5ead6",
+  paper: "#faf3e6",
+  ink: "#2c1810",
+  inkLight: "#5a3a28",
+  accent: "#c44536",
+  accentSoft: "#e07a5f",
+  green: "#606c38",
+  greenLight: "#8a9a5b",
+  shadow: "rgba(20,10,5,0.4)",
+  windowBlue: "#87CEEB",
+  windowGlow: "#FFF8DC",
+};
