@@ -5,7 +5,7 @@ import { PageContainer, SpriteImg } from "./shared";
 import { createPerson } from "@/supabase/queries/person";
 
 
-export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes,addMember, familyId}) {
+export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes, addMember, familyId}) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
@@ -17,16 +17,27 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
   const [newDOB, setNewDOB] = useState("");
 
   const generations = useMemo(() => {
+    console.log("members:", members);
+    if (!members || members.length === 0) return [];
+
     const grouped = members.reduce((acc, member) => {
-      const gen = member.generation || 1;
-      if (!acc[gen]) acc[gen] = [];
-      acc[gen].push(member);
+      // Force conversion to number and handle potential undefined/null
+      const genValue = parseInt(member.generation, 10) || 1;
+      console.log(`Processing member: ${member.name}, generation: ${member.generation} (parsed: ${genValue})`);
+      
+      if (!acc[genValue]) acc[genValue] = [];
+      acc[genValue].push(member);
       return acc;
     }, {});
-    return Object.keys(grouped)
-      .map(g => Number(g))
-      .sort((a, b) => a - b)
-      .map(g => ({ generation: g, members: grouped[g] }));
+
+    const keys = Object.keys(grouped).map(Number);
+    // If no keys exist, default to 1
+    const maxGen = keys.length > 0 ? Math.max(...keys) : 1;
+    
+    return Array.from({ length: maxGen }, (_, i) => ({
+      generation: i + 1,
+      members: grouped[i + 1] || []
+    }));
   }, [members]);
 
   const getMember = (id) => members.find(m => m.id === id);
@@ -67,7 +78,7 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
         role: newRole || "Family",
         born: created.date_of_birth,
         parentId: newParent || null,
-        generation: created.generation,
+        generation: Number(created.generation),
       });
 
     } catch (err) {
@@ -92,37 +103,82 @@ export default function FamilyTreePage({ navigate, boomerMod,sprites,members,not
       </div>
 
       <div style={{
-        background: COLORS.paper, borderRadius: 16, padding: "24px 18px",
-        border: `1px solid ${COLORS.warm}40`, overflowX: "auto",
+        background: COLORS.paper, 
+        borderRadius: 16, 
+        padding: "32px 24px",
+        border: `1px solid ${COLORS.warm}40`, 
+        overflowX: "auto",
+        boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
       }}>
-        <div style={{ display: "flex", gap: 24, minWidth: "max-content" }}>
+        <div style={{ display: "flex", gap: 40, minWidth: "max-content", alignItems: "flex-start" }}>
           {generations.map(gen => (
-            <div key={gen.generation} style={{ minWidth: 220 }}>
+            <div key={gen.generation} style={{ width: 220, flexShrink: 0 }}>
+              {/* Generation Header */}
               <div style={{
-                fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600,
-                marginBottom: 12, color: COLORS.ink,
+                fontFamily: "'Playfair Display', serif", 
+                fontSize: 14, 
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                marginBottom: 20, 
+                color: COLORS.accent,
+                borderBottom: `1px solid ${COLORS.warm}40`,
+                paddingBottom: 8
               }}>
-                Generation {gen.generation}
+                Gen {gen.generation}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {gen.members.map(member => {
-                  const active = selectedMember?.id === member.id;
-                  return (
-                    <button key={member.id} onClick={() => setSelectedMember(member)} style={{
-                      background: active ? COLORS.warm : "#fff9f0",
-                      border: active ? `2px solid ${COLORS.accent}` : `1px solid ${COLORS.warm}40`,
-                      borderRadius: 12, padding: "10px 12px", cursor: "pointer",
-                      display: "flex", alignItems: "center", gap: 10, textAlign: "left",
-                      transition: "all 0.2s",
-                    }}>
-                      <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={28} />
-                      <div>
-                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 600, color: active ? COLORS.paper : COLORS.ink }}>{member.name}</div>
-                        <div style={{ fontSize: 11, color: active ? COLORS.paper : COLORS.inkLight }}>{member.role}</div>
-                      </div>
-                    </button>
-                  );
-                })}
+
+              {/* Members List */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {gen.members.length === 0 ? (
+                  <div style={{ fontSize: 12, color: COLORS.inkLight, fontStyle: "italic", padding: "10px" }}>
+                    No members
+                  </div>
+                ) : (
+                  gen.members.map(member => {
+                    const active = selectedMember?.id === member.id;
+                    return (
+                      <button 
+                        key={member.id} 
+                        onClick={() => setSelectedMember(member)} 
+                        style={{
+                          background: active ? COLORS.accent : "#ffffff",
+                          border: `1px solid ${active ? COLORS.accent : COLORS.warm + "40"}`,
+                          borderRadius: 12, 
+                          padding: "12px", 
+                          cursor: "pointer",
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: 12, 
+                          textAlign: "left",
+                          transition: "all 0.2s ease",
+                          boxShadow: active ? `0 4px 12px ${COLORS.accent}40` : "0 2px 4px rgba(0,0,0,0.03)",
+                          width: "100%"
+                        }}
+                      >
+                        <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={32} />
+                        <div style={{ overflow: "hidden" }}>
+                          <div style={{ 
+                            fontFamily: "'Playfair Display', serif", 
+                            fontSize: 13, 
+                            fontWeight: 600, 
+                            color: active ? COLORS.paper : COLORS.ink,
+                            whiteSpace: "nowrap",
+                            textOverflow: "ellipsis"
+                          }}>
+                            {member.name}
+                          </div>
+                          <div style={{ 
+                            fontSize: 11, 
+                            color: active ? COLORS.paper + "CC" : COLORS.inkLight 
+                          }}>
+                            {member.role || "Family Member"}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           ))}

@@ -12,7 +12,8 @@ export const getFamilyMembers = async (familyId) => {
         last_name,
         created_at,
         date_of_birth,
-        gender
+        gender,
+        generation
       )
     `)
     .eq('family_id', familyId)
@@ -30,6 +31,7 @@ export const getFamilyMembers = async (familyId) => {
       created_at: p.created_at,
       date_of_birth: p.date_of_birth,
       gender: p.gender,
+      generation: p.generation,
     };
   });
 };
