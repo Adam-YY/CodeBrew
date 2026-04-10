@@ -1,12 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer, SpriteImg } from "./shared";
+import { supabase } from "@/supabase/client";
 
-export default function CalendarPage({ navigate, currentUser, boomerMode, members, notes, sprites }) {
+export default function CalendarPage({
+  navigate,
+  currentUser,
+  boomerMode,
+  members,
+  notes,
+  sprites,
+  uploads,
+  openMessageFromCalendar,
+  openFileFromCalendar,
+}) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
   const [showDayModal, setShowDayModal] = useState(false);
+  const [signedUrls, setSignedUrls] = useState({});
   const year = 2026;
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -22,7 +34,47 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, member
     return notes.filter(n => n.eventDate === `${mm}-${dd}` && (n.to === currentUser.id || n.to === "all"));
   };
 
-  const allMonthNotes = days.flatMap(d => getNotesForDay(d).map(n => ({ ...n, day: d })));
+  const getUploadsForDay = (day) => {
+    const mm = String(selectedMonth + 1).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    const target = `${mm}-${dd}`;
+    return (uploads || []).filter((u) => {
+      const uploadDate = u.event_date || u.eventDate || null;
+      const visibleToCurrentUser =
+        u.recipient_id == null ||
+        u.recipient_id === currentUser.id ||
+        u.to === "all" ||
+        u.to === currentUser.id;
+      return uploadDate === target && visibleToCurrentUser;
+    });
+  };
+
+  const allMonthEvents = days.flatMap((d) => [
+    ...getNotesForDay(d).map((n) => ({ kind: "note", day: d, id: `note-${n.id}`, data: n })),
+    ...getUploadsForDay(d).map((u) => ({ kind: "upload", day: d, id: `upload-${u.id}`, data: u })),
+  ]);
+
+  const getSelectedISODate = () => {
+    if (!selectedDay) return "";
+    const mm = String(selectedMonth + 1).padStart(2, "0");
+    const dd = String(selectedDay).padStart(2, "0");
+    return `${year}-${mm}-${dd}`;
+  };
+
+  useEffect(() => {
+    const loadUrls = async () => {
+      const map = {};
+      for (const item of uploads || []) {
+        if (!item.media_path) continue;
+        const { data } = await supabase.storage
+          .from("multimedia")
+          .createSignedUrl(item.media_path, 3600);
+        if (data?.signedUrl) map[item.id] = data.signedUrl;
+      }
+      setSignedUrls(map);
+    };
+    if ((uploads || []).length > 0) loadUrls();
+  }, [uploads]);
 
   return (
     <PageContainer navigate={navigate} title="Family Calendar" boomerMode={boomerMode}
@@ -63,23 +115,23 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, member
           {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
           {days.map(day => {
             const dayNotes = getNotesForDay(day);
-            const hasNotes = dayNotes.length > 0;
+            const dayUploads = getUploadsForDay(day);
+            const hasEvents = dayNotes.length > 0 || dayUploads.length > 0;
             const isSelected = selectedDay === day;
             return (
               <button key={day} onClick={() => {
-                if (!hasNotes) return;
                 setSelectedDay(isSelected ? null : day);
                 setShowDayModal(!isSelected);
               }} style={{
-                background: isSelected ? COLORS.warm : hasNotes ? `${COLORS.warm}15` : "transparent",
-                border: hasNotes ? `1px solid ${COLORS.warm}50` : "1px solid transparent",
-                borderRadius: 10, padding: "8px 4px", cursor: hasNotes ? "pointer" : "default",
+                background: isSelected ? COLORS.warm : hasEvents ? `${COLORS.warm}15` : "transparent",
+                border: hasEvents ? `1px solid ${COLORS.warm}50` : "1px solid transparent",
+                borderRadius: 10, padding: "8px 4px", cursor: hasEvents ? "pointer" : "default",
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                 minHeight: 42, transition: "all 0.2s",
                 color: isSelected ? COLORS.paper : COLORS.ink,
               }}>
                 <span style={{ fontSize: 14, fontWeight: isSelected ? 700 : 400 }}>{day}</span>
-                {hasNotes && <div style={{ width: 5, height: 5, borderRadius: "50%", background: isSelected ? COLORS.paper : COLORS.accent }} />}
+                {hasEvents && <div style={{ width: 5, height: 5, borderRadius: "50%", background: isSelected ? COLORS.paper : COLORS.accent }} />}
               </button>
             );
           })}
@@ -87,7 +139,7 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, member
       </div>
 
       {/* Selected day modal */}
-      {showDayModal && selectedDay && getNotesForDay(selectedDay).length > 0 && (
+      {showDayModal && selectedDay && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,10,5,0.7)",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -103,6 +155,26 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, member
               <button onClick={() => { setShowDayModal(false); setSelectedDay(null); }} style={{
                 background: "none", border: "none", fontSize: 20, cursor: "pointer", color: COLORS.ink,
               }}>{"✕"}</button>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <button
+                onClick={() => openMessageFromCalendar?.(getSelectedISODate())}
+                style={{
+                  border: "none", borderRadius: 10, padding: "8px 12px",
+                  background: COLORS.accent, color: COLORS.paper, cursor: "pointer", fontWeight: 600,
+                }}
+              >
+                Add message
+              </button>
+              <button
+                onClick={() => openFileFromCalendar?.(getSelectedISODate())}
+                style={{
+                  border: `1px solid ${COLORS.accent}60`, borderRadius: 10, padding: "8px 12px",
+                  background: COLORS.paper, color: COLORS.accent, cursor: "pointer", fontWeight: 600,
+                }}
+              >
+                Add file
+              </button>
             </div>
             {getNotesForDay(selectedDay).map(note => {
               const from = getMember(note.from);
@@ -120,24 +192,76 @@ export default function CalendarPage({ navigate, currentUser, boomerMode, member
                 </div>
               );
             })}
+            {getUploadsForDay(selectedDay).map((upload) => {
+              const from = getMember(upload.sender_id || upload.from);
+              const link = signedUrls[upload.id];
+              const mediaType = upload.media_type || "";
+              const typeLabel = mediaType === "AUDIO" || mediaType.startsWith("audio/") ? "Voice"
+                : mediaType === "VIDEO" || mediaType.startsWith("video/") ? "Video"
+                : "Document";
+              return (
+                <div key={`upload-${upload.id}`} style={{
+                  background: "#f2f7ff", border: `1px solid ${COLORS.accent}35`,
+                  borderRadius: 14, padding: 16, marginBottom: 10,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 15 }}>
+                        {upload.description || "Shared family file"}
+                      </div>
+                      <div style={{ fontSize: 12, color: COLORS.inkLight }}>
+                        {typeLabel} from {from?.name || "Family"}
+                      </div>
+                    </div>
+                    {link ? (
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          textDecoration: "none", background: COLORS.accent, color: COLORS.paper,
+                          borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600,
+                        }}
+                      >
+                        Open file
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: 12, color: COLORS.inkLight }}>Preparing link...</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {getNotesForDay(selectedDay).length === 0 && getUploadsForDay(selectedDay).length === 0 && (
+              <p style={{ margin: 0, color: COLORS.inkLight, fontStyle: "italic" }}>No events yet for this date.</p>
+            )}
           </div>
         </div>
       )}
 
       {/* All events this month */}
-      {allMonthNotes.length > 0 && !showDayModal && !selectedDay && (
+      {allMonthEvents.length > 0 && !showDayModal && !selectedDay && (
         <div style={{ marginTop: 24 }}>
           <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 14 }}>This Month&apos;s Events</h3>
-          {allMonthNotes.map((note, i) => (
-            <div key={i} style={{
+          {allMonthEvents.map((event) => (
+            <div key={event.id} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
               background: COLORS.paper, borderRadius: 10, marginBottom: 8,
               border: `1px solid ${COLORS.warm}30`, cursor: "pointer",
-            }} onClick={() => { setSelectedDay(note.day); setShowDayModal(true); }}>
-              <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 18, color: COLORS.warm, minWidth: 30, textAlign: "center" }}>{note.day}</span>
+            }} onClick={() => { setSelectedDay(event.day); setShowDayModal(true); }}>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 18, color: COLORS.warm, minWidth: 30, textAlign: "center" }}>{event.day}</span>
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{note.title}</div>
-                <div style={{ fontSize: 12, color: COLORS.inkLight }}>From {getMember(note.from)?.name}</div>
+                {event.kind === "note" ? (
+                  <>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{event.data.title}</div>
+                    <div style={{ fontSize: 12, color: COLORS.inkLight }}>From {getMember(event.data.from)?.name}</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{event.data.description || "Shared family file"}</div>
+                    <div style={{ fontSize: 12, color: COLORS.inkLight }}>File upload</div>
+                  </>
+                )}
               </div>
             </div>
           ))}

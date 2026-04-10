@@ -1,9 +1,18 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer } from "./shared";
 
-export default function LettersPage({ navigate, currentUser, boomerMode, members, notes, addNote }) {
+export default function LettersPage({
+  navigate,
+  currentUser,
+  boomerMode,
+  members,
+  notes,
+  addNote,
+  calendarDraft,
+  consumeCalendarDraft,
+}) {
   const today = new Date();
   const [composeOpen, setComposeOpen] = useState(false);
   const [toMember, setToMember] = useState("all");
@@ -45,6 +54,13 @@ export default function LettersPage({ navigate, currentUser, boomerMode, members
     setToMember("all");
     setComposeOpen(false);
   };
+
+  useEffect(() => {
+    if (calendarDraft?.target !== "letters") return;
+    setComposeOpen(true);
+    setEventDate(calendarDraft.eventDate || "");
+    consumeCalendarDraft?.("letters");
+  }, [calendarDraft, consumeCalendarDraft]);
 
   return (
     <PageContainer navigate={navigate} title="Family Letters" boomerMode={boomerMode}
