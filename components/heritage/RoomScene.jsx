@@ -51,7 +51,7 @@ export default function RoomScene({
           key={item.id}
           onClick={() => {
             if (item.id === "portrait") {
-              setShowPortraitPicker(true);
+              navigate("portrait");
               return;
             }
             navigate(item.id);
