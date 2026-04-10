@@ -17,6 +17,7 @@ export default function HeritageHome() {
   const [currentUser, setCurrentUser] = useState(INITIAL_MEMBERS[4]); // Brian
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
+  const [sprites, setSprites] = useState({});
 
   const navigate = (target) => {
     setTransition(true);

@@ -2,19 +2,9 @@
 import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer, SpriteImg } from "./shared";
-import { FAMILY_TREE, NOTES, getMember } from "./data";
-
-export default function FamilyTreePage({
-  navigate,
-  boomerMode,
-  sprites,
-  members,
-  notes,
-  addMember,
-}) {
 
 
-export default function FamilyTreePage({ navigate, boomerMode }) {
+export default function FamilyTreePage({ navigate, boomerMod,sprites,members,notes,addMember }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
@@ -56,7 +46,7 @@ export default function FamilyTreePage({ navigate, boomerMode }) {
   };
 
   return (
-    <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMode}
+    <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMod}
       description="Browse family members by generation. Tap a person to see the notes they have left for the family. Use the plus button to add new family members.">
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
