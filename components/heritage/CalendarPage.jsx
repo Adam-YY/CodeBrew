@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { COLORS } from "./colors";
-import { PageContainer, SpriteImg } from "./shared";
+import { NOTES, getMember } from "./data";
+import { PageContainer } from "./shared";
 
-export default function CalendarPage({ navigate, currentUser, boomerMode, sprites, notes, members }) {
+export default function CalendarPage({ navigate, currentUser, boomerMode }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
   const [showDayModal, setShowDayModal] = useState(false);

@@ -1,9 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
-import { PageContainer, SpriteImg } from "./shared";
+import { NOTES, getMember } from "./data";
+import { PageContainer } from "./shared";
 
-export default function LettersPage({ navigate, currentUser, boomerMode, sprites, notes, addNote, members }) {
+export default function LettersPage({ navigate, currentUser, boomerMode }) {
   const today = new Date();
   const [composeOpen, setComposeOpen] = useState(false);
   const [toMember, setToMember] = useState("all");
@@ -85,7 +86,7 @@ export default function LettersPage({ navigate, currentUser, boomerMode, sprites
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                {from && <SpriteImg src={sprites[from.id]} fallback={from.avatar} size={22} />}
+                {from && <span style={{ fontSize: 22, lineHeight: 1 }}>{from.avatar}</span>}
                 <div>
                   <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>{from?.name}</div>
                   <div style={{ fontSize: 11, color: COLORS.inkLight }}>

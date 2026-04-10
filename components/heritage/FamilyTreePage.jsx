@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer, SpriteImg } from "./shared";
+import { FAMILY_TREE, NOTES, getMember } from "./data";
 
 export default function FamilyTreePage({
   navigate,
@@ -11,6 +12,9 @@ export default function FamilyTreePage({
   notes,
   addMember,
 }) {
+
+
+export default function FamilyTreePage({ navigate, boomerMode }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
@@ -108,7 +112,7 @@ export default function FamilyTreePage({
       {selectedMember && (
         <div style={{ marginTop: 28 }}>
           <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, textAlign: "center", marginBottom: 6 }}>
-            <SpriteImg src={sprites[selectedMember.id]} fallback={selectedMember.avatar} size={20} style={{ verticalAlign: "middle", marginRight: 6 }} /> Notes by {selectedMember.name}
+            <span style={{ fontSize: 20, lineHeight: 1, verticalAlign: "middle", marginRight: 6 }}>{selectedMember.avatar}</span> Notes by {selectedMember.name}
           </h3>
           <p style={{ textAlign: "center", fontSize: 13, color: COLORS.inkLight, marginBottom: 20 }}>
             {memberNotes.length} note{memberNotes.length !== 1 ? "s" : ""} left for the family
@@ -127,8 +131,8 @@ export default function FamilyTreePage({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontSize: 12, color: COLORS.inkLight, display: "flex", alignItems: "center", gap: 4 }}>
                         To: {toMember
-                          ? <><SpriteImg src={sprites[toMember.id]} fallback={toMember.avatar} size={14} /> {toMember.name}</>
-                          : "Everyone"}
+                          ? <><span style={{ fontSize: 14, lineHeight: 1 }}>{toMember.avatar}</span> {toMember.name}</>
+                          : "👨‍👩‍👧‍👦 Everyone"}
                       </span>
                       <span style={{
                         fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600,
