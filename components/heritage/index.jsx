@@ -24,12 +24,27 @@ export default function HeritageHome() {
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
   const [sprites, setSprites] = useState({});
+  const [calendarDraft, setCalendarDraft] = useState(null);
 
   const [familyId, setFamilyId] = useState("bd1af34e-76cc-4bad-a302-c090957ad6d8"); //temporary
 
   const navigate = (target) => {
     setTransition(true);
     setTimeout(() => { setPage(target); setTransition(false); }, 400);
+  };
+
+  const openMessageFromCalendar = (eventDate) => {
+    setCalendarDraft({ target: "letters", eventDate });
+    navigate("letters");
+  };
+
+  const openFileFromCalendar = (eventDate) => {
+    setCalendarDraft({ target: "cassette", eventDate });
+    navigate("cassette");
+  };
+
+  const consumeCalendarDraft = (target) => {
+    setCalendarDraft((prev) => (prev?.target === target ? null : prev));
   };
 
   const nextAvatar = useMemo(() => {
@@ -99,6 +114,10 @@ export default function HeritageHome() {
     addNote,
     addUpload,
     familyId,
+    calendarDraft,
+    openMessageFromCalendar,
+    openFileFromCalendar,
+    consumeCalendarDraft,
   };
 
   useEffect(() => {
