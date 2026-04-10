@@ -28,7 +28,6 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
 
   const getMember = (id) => members.find((m) => m.id === id);
 
-  // 🔥 FETCH MESSAGES
   useEffect(() => {
     const fetchMessages = async () => {
       const { data, error } = await supabase
@@ -37,13 +36,33 @@ export default function CassettePage({ navigate, currentUser, boomerMode, member
         .or(
           `recipient_id.is.null,recipient_id.eq.${currentUser.id},sender_id.eq.${currentUser.id}`
         )
-        .order("created_at", { ascending: false });
+        .order("display_date", { ascending: true });
+
       if (error) {
         console.error("Fetch error:", error);
         return;
       }
-      setMessages(data || []);
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const filtered = (data || []).filter((msg) => {
+        // ✅ sender ALWAYS sees (hard bypass)
+        if (String(msg.sender_id) === String(currentUser.id)) {
+          return true;
+        }
+
+        // ✅ no date → visible
+        if (!msg.display_date) return true;
+
+        // ✅ normalize date to YYYY-MM-DD
+        const msgDate = String(msg.display_date).split("T")[0];
+
+        return msgDate <= today;
+      });
+
+      setMessages(filtered);
     };
+
     fetchMessages();
   }, [currentUser.id]);
 
