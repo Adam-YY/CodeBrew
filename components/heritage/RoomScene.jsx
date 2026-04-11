@@ -177,7 +177,6 @@ export default function RoomScene({
     <div
       style={{
         width: "100%",
-        maxWidth: 1920,
         aspectRatio: "1920 / 1080",
         position: "relative",
         margin: "0 auto",
