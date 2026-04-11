@@ -1,6 +1,6 @@
 import { supabase } from '@/supabase/client';
 
-export const getFamilyMembers = async (familyId) => {
+export const getFamilyMembers = async (familyId: number) => {
   console.log('Fetching family members for family ID:', familyId);
 
   const { data, error } = await supabase
