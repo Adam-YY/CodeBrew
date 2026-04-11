@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useEffect } from "react";
 import { COLORS } from "./colors";
@@ -109,7 +109,7 @@ export default function PortraitPage({
       >
         {safeMembers.length === 0 ? (
           <p style={{ textAlign: "center", width: "100%" }}>
-            No members found (check console)
+            Currently no family members!
           </p>
         ) : (
           safeMembers.map((member) => {

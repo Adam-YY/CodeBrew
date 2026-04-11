@@ -41,14 +41,35 @@ export default function CassettePage({
     video: "video/*",
   };
 
-  // 🔥 FETCH MESSAGES
+  // 🔥 FETCH MESSAGES — scoped to this family via family_person
   useEffect(() => {
     const fetchMessages = async () => {
+      // 1. Find which family currentUser belongs to
+      const { data: familyPersonRow } = await supabase
+        .from("family_person")
+        .select("family_id")
+        .eq("person_id", currentUser.id)
+        .single();
+
+      if (!familyPersonRow) return;
+
+      // 2. Get all person IDs in that family
+      const { data: familyPersons } = await supabase
+        .from("family_person")
+        .select("person_id")
+        .eq("family_id", familyPersonRow.family_id);
+
+      const familyPersonIds = (familyPersons ?? []).map((fp) => fp.person_id);
+      if (familyPersonIds.length === 0) return;
+
+      // 3. Fetch messages sent by family members that are visible to currentUser
       const { data, error } = await supabase
         .from("message")
         .select("*")
+        .in("sender_id", familyPersonIds)
         .or(`recipient_id.is.null,recipient_id.eq.${currentUser.id},sender_id.eq.${currentUser.id}`)
         .order("created_at", { ascending: false });
+
       if (error) return;
       setMessages(data || []);
     };
@@ -94,7 +115,6 @@ export default function CassettePage({
     if (!file && !title.trim()) return;
     setUploading(true);
     try {
-      // FIX: Use the full YYYY-MM-DD format for the database
       const formattedEventDate = eventDate || null; 
       
       let filePath = null;
@@ -124,7 +144,7 @@ export default function CassettePage({
         media_path: filePath,
         media_type: toMediaTypeEnum(file?.type),
         description: title || null,
-        display_date: formattedEventDate, // Now sends YYYY-MM-DD
+        display_date: formattedEventDate,
       };
 
       const { data, error: insertError } = await supabase
@@ -150,7 +170,7 @@ export default function CassettePage({
       }
     } catch (err) {
       console.error("Upload process failed:", err);
-      alert("Upload failed: " + err.message); // Helpful for immediate debugging
+      alert("Upload failed: " + err.message);
     } finally {
       setUploading(false);
     }

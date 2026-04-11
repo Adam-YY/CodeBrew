@@ -8,6 +8,7 @@ import CalendarPage from "./CalendarPage";
 import CassettePage from "./CassettePage";
 import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
+import LoginPage from "./LoginPage";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
 import { createPerson } from "@/supabase/queries/person";
@@ -20,6 +21,9 @@ export default function HeritageHome() {
   const [uploads, setUploads] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
 
+  const [authUser, setAuthUser] = useState(null);       // Supabase auth session user
+  const [authReady, setAuthReady] = useState(false);    // whether we've checked session yet
+
   const [loading, setLoading] = useState(true);
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
@@ -27,8 +31,133 @@ export default function HeritageHome() {
   const [calendarDraft, setCalendarDraft] = useState(null);
   const [viewSrc, setViewSrc] = useState("/assets/view.png");
 
-  const [familyId, setFamilyId] = useState("bd1af34e-76cc-4bad-a302-c090957ad6d8"); //temporary
+  const [familyId, setFamilyId] = useState(null);
 
+  // ── Auth: restore session on mount ──────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthUser(session?.user ?? null);
+      setAuthReady(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = (user) => setAuthUser(user);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setLoading(true);
+    setAuthUser(null);
+    setCurrentUser(null);
+    setFamilyId(null);
+    setMembers([]);
+    setUploads([]);
+    setNotes([]);
+    setPage("room");
+  };
+
+  // ── Family data: load once authed ───────────────────────────────────────────
+  useEffect(() => {
+    if (!authUser) return;
+
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Resolve the family this user belongs to (as owner or member)
+        const { data: familyData, error: familyError } = await supabase
+          .from("family")
+          .select("id")
+          .eq("owner_id", authUser.id)
+          .single();
+
+        if (familyError || !familyData) {
+          console.error("Could not resolve family for user:", familyError);
+          setLoading(false);
+          return;
+        }
+
+        const resolvedFamilyId = familyData.id;
+        setFamilyId(resolvedFamilyId);
+
+        const familyMembers = await getFamilyMembers(resolvedFamilyId);
+
+        const mappedMembers = familyMembers.map((m, index) => ({
+          id: m.id,
+          name: `${m.first_name} ${m.last_name}`,
+          avatar: DEFAULT_AVATARS[index % DEFAULT_AVATARS.length],
+          role: "Family",
+          born: m.date_of_birth,
+          parentId: null,
+          generation: m.generation || 1,
+        }));
+
+        setMembers(mappedMembers);
+        setCurrentUser(mappedMembers.length > 0 ? mappedMembers[0] : authUser);
+
+        // Get all person IDs in this family, then fetch their messages
+        const { data: familyPersons } = await supabase
+          .from("family_person")
+          .select("person_id")
+          .eq("family_id", resolvedFamilyId);
+
+        const personIds = (familyPersons || []).map(fp => fp.person_id);
+
+        const { data, error } = personIds.length > 0
+          ? await supabase
+              .from("message")
+              .select("*")
+              .in("sender_id", personIds)
+              .order("created_at", { ascending: false })
+          : { data: [], error: null };
+
+        if (error) console.error("Upload fetch error:", error);
+        else setUploads(data || []);
+
+      } catch (err) {
+        console.error("Error loading data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [authUser]);
+
+  useEffect(() => {
+    const loadUploads = async () => {
+      if (!currentUser) return;
+
+      if (!familyId) return;
+
+      // Get all person IDs in this family, then fetch their messages
+      const { data: familyPersons } = await supabase
+        .from("family_person")
+        .select("person_id")
+        .eq("family_id", familyId);
+
+      const personIds = (familyPersons || []).map(fp => fp.person_id);
+
+      const { data, error } = personIds.length > 0
+        ? await supabase
+            .from("message")
+            .select("*")
+            .in("sender_id", personIds)
+            .order("created_at", { ascending: false })
+        : { data: [], error: null };
+
+      if (error) console.error("Upload fetch error:", error);
+      else setUploads(data || []);
+    };
+
+    loadUploads();
+  }, [currentUser, familyId]);
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   const navigate = (target) => {
     setTransition(true);
     setTimeout(() => { setPage(target); setTransition(false); }, 400);
@@ -72,22 +201,14 @@ export default function HeritageHome() {
 
   const addNote = (note) => {
     setNotes(prev => [
-      {
-        ...note,
-        id: `n-${Date.now().toString(36)}`,
-        createdAt: new Date().toISOString().split("T")[0],
-      },
+      { ...note, id: `n-${Date.now().toString(36)}`, createdAt: new Date().toISOString().split("T")[0] },
       ...prev,
     ]);
   };
 
   const addUpload = (upload) => {
     setUploads(prev => [
-      {
-        ...upload,
-        id: `u-${Date.now().toString(36)}`,
-        date: new Date().toISOString().split("T")[0],
-      },
+      { ...upload, id: `u-${Date.now().toString(36)}`, date: new Date().toISOString().split("T")[0] },
       ...prev,
     ]);
   };
@@ -121,84 +242,20 @@ export default function HeritageHome() {
     openMessageFromCalendar,
     openFileFromCalendar,
     consumeCalendarDraft,
+    onLogout: handleLogout,
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        console.log("Loading family data...");
+  // ── Render ────────────────────────────────────────────────────────────────────
 
-        const familyMembers = await getFamilyMembers(familyId);
+  // Still checking session — show nothing to avoid flash
+  if (!authReady) return null;
 
-        console.log("Raw DB members:", familyMembers);
+  // Not logged in — show login page
+  if (!authUser) return <LoginPage onLogin={handleLogin} />;
 
-        const mappedMembers = familyMembers.map((m, index) => ({
-          id: m.id,
-          name: `${m.first_name} ${m.last_name}`,
-          avatar: DEFAULT_AVATARS[index % DEFAULT_AVATARS.length],
-          role: "Family",
-          born: m.date_of_birth,
-          parentId: null,
-          generation: m.generation || 1,
-        }));
-
-        console.log("Mapped members:", mappedMembers);
-
-        setMembers(mappedMembers);
-
-        const firstUser = mappedMembers[0] || null;
-        setCurrentUser(firstUser);
-
-        console.log("Current user:", firstUser);
-
-        // load uploads AFTER user is ready
-        const { data, error } = await supabase
-          .from("message")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Upload fetch error:", error);
-        } else {
-          console.log("Messages:", data);
-          setUploads(data || []);
-        }
-
-      } catch (err) {
-        console.error("Error loading data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    const loadUploads = async () => {
-      if (!currentUser) return;
-
-      console.log("📦 Loading uploads/messages...");
-
-      const { data, error } = await supabase
-        .from("message")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Upload fetch error:", error);
-        return;
-      }
-
-      console.log("📦 Messages from DB:", data);
-      setUploads(data || []);
-    };
-
-    loadUploads();
-  }, [currentUser]);
-
-  if (loading || !currentUser) {
-    return <div style={{ padding: 40 }}>Loading family data...</div>;
+  // Logged in but family data still loading
+  if (loading) {
+    return <div style={{ padding: 40, fontFamily: "Georgia, serif" }}>Loading family data…</div>;
   }
 
   return (
@@ -209,16 +266,41 @@ export default function HeritageHome() {
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:wght@400;600;700;800&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      <div style={{
-        opacity: transition ? 0 : 1,
-        transition: "all 0.4s ease",
-      }}>
-        {page === "room" && <RoomScene {...pageProps} />}
-        {page === "portrait" && <PortraitPage {...pageProps} />}
-        {page === "calendar" && <CalendarPage {...pageProps} />}
-        {page === "cassette" && <CassettePage {...pageProps} />}
-        {page === "tree" && <FamilyTreePage {...pageProps} />}
-        {page === "letters" && <LettersPage {...pageProps} />}
+      {/* Logout button — visible only in the main room */}
+      {page === "room" && <button
+        onClick={handleLogout}
+        title="Sign out"
+        style={{
+          position: "fixed",
+          top: 16,
+          left: 20,
+          zIndex: 1000,
+          background: "rgba(255, 253, 247, 0.88)",
+          backdropFilter: "blur(6px)",
+          border: `1px solid ${COLORS.ink}33`,
+          borderRadius: 6,
+          padding: "6px 14px",
+          fontFamily: "'Crimson Text', Georgia, serif",
+          fontSize: 14,
+          color: COLORS.ink,
+          cursor: "pointer",
+          letterSpacing: "0.04em",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+          transition: "background 0.2s, box-shadow 0.2s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,253,247,1)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.22)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,253,247,0.88)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.18)"; }}
+      >
+        Sign out
+      </button>}
+
+      <div style={{ opacity: transition ? 0 : 1, transition: "all 0.4s ease" }}>
+        {page === "room"     && <RoomScene      {...pageProps} />}
+        {page === "portrait" && <PortraitPage   {...pageProps} />}
+        {page === "calendar" && <CalendarPage   {...pageProps} />}
+        {page === "cassette" && <CassettePage   {...pageProps} />}
+        {page === "tree"     && <FamilyTreePage {...pageProps} />}
+        {page === "letters"  && <LettersPage    {...pageProps} />}
       </div>
     </div>
   );
