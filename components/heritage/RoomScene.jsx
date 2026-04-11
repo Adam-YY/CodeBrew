@@ -27,17 +27,8 @@ export default function RoomScene({
     e.target.value = "";
   };
 
+  // labelPos: "top" | "bottom" | "left" | "right" (default: "top")
   const items = [
-    {
-      id: "tree",
-      label: "Family Tree",
-      desc: "View your family tree and see notes left by each member",
-      x: "86.7%",
-      y: "29%",
-      size: "21%",
-      emoji: "😹",
-      asset: "/assets/famtree.png",
-    },
     {
       id: "cassette",
       label: "Cassette Player",
@@ -48,16 +39,18 @@ export default function RoomScene({
       emoji: "📼",
       asset: "/assets/cassetplayer.png",
       hoverAsset: "/assets/cassetplayeropen.png",
+      labelPos: "top",
     },
     {
       id: "portrait",
-      label: "Portrait Frame",
+      label: "Switch Users",
       desc: "Switch between family members to see messages left for each person",
       x: "82.5%",
       y: "76%",
       size: "25.5%",
       emoji: "🖼️",
       asset: "/assets/photoframe.png",
+      labelPos: "right",
     },
     {
       id: "calendar",
@@ -69,6 +62,7 @@ export default function RoomScene({
       emoji: "📅",
       asset: "/assets/calendar.png",
       hoverAsset: "/assets/calendaropen.png",
+      labelPos: "top",
     },
     {
       id: "letters",
@@ -80,6 +74,18 @@ export default function RoomScene({
       emoji: "✉️",
       asset: "/assets/letter.png",
       hoverAsset: "/assets/letteropen.png",
+      labelPos: "top",
+    },
+    {
+      id: "tree",
+      label: "Family Tree",
+      desc: "View your family tree and see notes left by each member",
+      x: "86.7%",
+      y: "29%",
+      size: "21%",
+      emoji: "😹",
+      asset: "/assets/famtree.png",
+      labelPos: "left",
     },
   ];
 
@@ -214,9 +220,12 @@ export default function RoomScene({
             <div
               style={{
                 position: "absolute",
-                bottom: "105%",
-                left: "50%",
-                transform: "translateX(-50%)",
+                ...({
+                  top:    { bottom: "100%", left: "50%", transform: "translateX(-50%)" },
+                  bottom: { top: "90%",    left: "50%", transform: "translateX(-50%)" },
+                  left:   { right: "105%",  top: "40%",  transform: "translateY(-50%)" },
+                  right:  { left: "65%",   top: "50%",  transform: "translateY(-50%)" },
+                }[item.labelPos ?? "top"]),
                 background: COLORS.paper,
                 padding: "8px 14px",
                 borderRadius: 8,
