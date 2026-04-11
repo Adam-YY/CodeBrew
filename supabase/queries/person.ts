@@ -1,5 +1,16 @@
 import { supabase } from "@/supabase/client";
 
+type CreatePersonParams = {
+  first_name: string;
+  last_name: string;
+  generation: number;
+  family_id: number;
+
+  date_of_birth?: string | null;
+  gender?: string | null;
+  profile_picture_path?: string | null;
+};
+
 export const createPerson = async ({
   first_name,
   last_name,
@@ -8,7 +19,7 @@ export const createPerson = async ({
   gender = null,
   family_id,
   profile_picture_path = null,
-}) => {
+}: CreatePersonParams) => {
   console.log("Creating person:", {
     first_name,
     last_name,
