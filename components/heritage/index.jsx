@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 import { COLORS } from "./colors";
-import { DEFAULT_AVATARS, INITIAL_MEMBERS, INITIAL_NOTES, INITIAL_UPLOADS } from "./data";
+import { DEFAULT_AVATARS } from "./data";
 import RoomScene from "./RoomScene";
 import PortraitPage from "./PortraitPage";
 import CalendarPage from "./CalendarPage";
@@ -9,10 +9,8 @@ import CassettePage from "./CassettePage";
 import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
 import LoginPage from "./LoginPage";
-import { BlurredRoomBackground } from "./shared";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
-import { createPerson } from "@/supabase/queries/person";
 import { supabase } from "@/supabase/client";
 
 export default function HeritageHome() {
@@ -22,8 +20,8 @@ export default function HeritageHome() {
   const [uploads, setUploads] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
 
-  const [authUser, setAuthUser] = useState(null);       // Supabase auth session user
-  const [authReady, setAuthReady] = useState(false);    // whether we've checked session yet
+  const [authUser, setAuthUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [boomerMode, setBoomerMode] = useState(false);
@@ -34,7 +32,7 @@ export default function HeritageHome() {
 
   const [familyId, setFamilyId] = useState(null);
 
-  // ── Auth: restore session on mount ──────────────────────────────────────────
+  // ── Auth Logic ──────────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthUser(session?.user ?? null);
@@ -62,22 +60,20 @@ export default function HeritageHome() {
     setPage("room");
   };
 
-  // ── Family data: load once authed ───────────────────────────────────────────
+  // ── Data Loading ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;
 
     const loadData = async () => {
       setLoading(true);
       try {
-        // Resolve the family this user belongs to (as owner or member)
-        const { data: familyData, error: familyError } = await supabase
+        const { data: familyData } = await supabase
           .from("family")
           .select("id")
           .eq("owner_id", authUser.id)
           .single();
 
-        if (familyError || !familyData) {
-          console.error("Could not resolve family for user:", familyError);
+        if (!familyData) {
           setLoading(false);
           return;
         }
@@ -87,37 +83,37 @@ export default function HeritageHome() {
 
         const familyMembers = await getFamilyMembers(resolvedFamilyId);
 
-        const mappedMembers = familyMembers.map((m, index) => ({
-          id: m.id,
-          name: `${m.first_name} ${m.last_name}`,
-          avatar: DEFAULT_AVATARS[index % DEFAULT_AVATARS.length],
-          role: "Family",
-          born: m.date_of_birth,
-          parentId: null,
-          generation: m.generation || 1,
+        // Map members and generate Signed URLs for private bucket storage
+        const mappedMembers = await Promise.all(familyMembers.map(async (m, index) => {
+          let avatarUrl = DEFAULT_AVATARS[index % DEFAULT_AVATARS.length];
+          
+          if (m.profile_picture_path) {
+            const { data, error } = await supabase.storage
+              .from("profile")
+              .createSignedUrl(m.profile_picture_path, 3600);
+            
+            if (data?.signedUrl) avatarUrl = data.signedUrl;
+          }
+
+          return {
+            ...m,
+            id: m.id,
+            name: `${m.first_name} ${m.last_name}`,
+            avatar: avatarUrl, 
+            profile_picture_path: m.profile_picture_path, 
+            role: "Family",
+            born: m.date_of_birth,
+            parentId: null,
+            generation: m.generation || 1,
+          };
         }));
 
         setMembers(mappedMembers);
-        setCurrentUser(mappedMembers.length > 0 ? mappedMembers[0] : authUser);
 
-        // Get all person IDs in this family, then fetch their messages
-        const { data: familyPersons } = await supabase
-          .from("family_person")
-          .select("person_id")
-          .eq("family_id", resolvedFamilyId);
-
-        const personIds = (familyPersons || []).map(fp => fp.person_id);
-
-        const { data, error } = personIds.length > 0
-          ? await supabase
-              .from("message")
-              .select("*")
-              .in("sender_id", personIds)
-              .order("created_at", { ascending: false })
-          : { data: [], error: null };
-
-        if (error) console.error("Upload fetch error:", error);
-        else setUploads(data || []);
+        // IMPORTANT: Ensure currentUser is set from the mappedMembers 
+        // so it contains the signed 'avatar' URL for the top right corner
+        const currentInFamily = mappedMembers.find(m => m.id === authUser.id) || mappedMembers[0];
+        setCurrentUser(currentInFamily);
 
       } catch (err) {
         console.error("Error loading data:", err);
@@ -129,97 +125,65 @@ export default function HeritageHome() {
     loadData();
   }, [authUser]);
 
-  useEffect(() => {
-    const loadUploads = async () => {
-      if (!currentUser) return;
+  // ── Actions ────────────────────────────────────────────────────────────────
+  
+  const updateProfilePicture = async (personId, file) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${personId}/${Date.now()}.${fileExt}`;
 
-      if (!familyId) return;
+      // 1. Upload to 'profile' bucket
+      const { error: uploadError } = await supabase.storage
+        .from("profile")
+        .upload(filePath, file, { upsert: true });
 
-      // Get all person IDs in this family, then fetch their messages
-      const { data: familyPersons } = await supabase
-        .from("family_person")
-        .select("person_id")
-        .eq("family_id", familyId);
+      if (uploadError) throw uploadError;
 
-      const personIds = (familyPersons || []).map(fp => fp.person_id);
+      // 2. Update 'person' table column: profile_picture_path
+      const { error: dbError } = await supabase
+        .from("person")
+        .update({ profile_picture_path: filePath })
+        .eq("id", personId);
 
-      const { data, error } = personIds.length > 0
-        ? await supabase
-            .from("message")
-            .select("*")
-            .in("sender_id", personIds)
-            .order("created_at", { ascending: false })
-        : { data: [], error: null };
+      if (dbError) throw dbError;
 
-      if (error) console.error("Upload fetch error:", error);
-      else setUploads(data || []);
-    };
+      // 3. Generate a fresh Signed URL for the new file
+      const { data: signedData } = await supabase.storage
+        .from("profile")
+        .createSignedUrl(filePath, 3600);
 
-    loadUploads();
-  }, [currentUser, familyId]);
+      const newAvatarUrl = signedData?.signedUrl;
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+      // 4. Update Local Members State
+      setMembers(prev => prev.map(m => 
+        m.id === personId 
+          ? { ...m, avatar: newAvatarUrl, profile_picture_path: filePath } 
+          : m
+      ));
+
+      // 5. FIX: Update currentUser state immediately so top-right corner updates
+      if (currentUser?.id === personId) {
+        setCurrentUser(prev => ({
+          ...prev,
+          avatar: newAvatarUrl,
+          profile_picture_path: filePath
+        }));
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Upload failed:", err);
+      return false;
+    }
+  };
+
   const navigate = (target) => {
     setTransition(true);
     setTimeout(() => { setPage(target); setTransition(false); }, 400);
   };
 
-  const openMessageFromCalendar = (eventDate) => {
-    setCalendarDraft({ target: "letters", eventDate });
-    navigate("letters");
-  };
-
-  const openFileFromCalendar = (eventDate) => {
-    setCalendarDraft({ target: "cassette", eventDate });
-    navigate("cassette");
-  };
-
-  const consumeCalendarDraft = (target) => {
-    setCalendarDraft((prev) => (prev?.target === target ? null : prev));
-  };
-
-  const nextAvatar = useMemo(() => {
-    const used = new Set(members.map(member => member.avatar));
-    return DEFAULT_AVATARS.find(avatar => !used.has(avatar)) || DEFAULT_AVATARS[0];
-  }, [members]);
-
-  const addMember = ({ name, generation, role, parentId }) => {
-    const trimmedName = name.trim();
-    if (!trimmedName) return null;
-    const gen = Number(generation) || 1;
-    const newMember = {
-      id: `m-${Date.now().toString(36)}`,
-      name: trimmedName,
-      role: role?.trim() || (gen === 1 ? "Elder" : gen === 2 ? "Parent" : gen === 3 ? "Child" : "Family"),
-      avatar: nextAvatar,
-      born: null,
-      parentId: parentId || null,
-      generation: gen,
-    };
-    setMembers(prev => [...prev, newMember]);
-    return newMember;
-  };
-
-  const addNote = (note) => {
-    setNotes(prev => [
-      { ...note, id: `n-${Date.now().toString(36)}`, createdAt: new Date().toISOString().split("T")[0] },
-      ...prev,
-    ]);
-  };
-
-  const addUpload = (upload) => {
-    setUploads(prev => [
-      { ...upload, id: `u-${Date.now().toString(36)}`, date: new Date().toISOString().split("T")[0] },
-      ...prev,
-    ]);
-  };
-
-  const updateSprite = (key, file) => {
-    if (!file) return;
-    setSprites(prev => {
-      if (prev[key]) URL.revokeObjectURL(prev[key]);
-      return { ...prev, [key]: URL.createObjectURL(file) };
-    });
+  const handleMemberAdded = (newMember) => {
+    setMembers((prev) => [...prev, newMember]);
   };
 
   const pageProps = {
@@ -229,35 +193,25 @@ export default function HeritageHome() {
     boomerMode,
     setBoomerMode,
     sprites,
-    updateSprite,
+    updateSprite: (key, file) => {
+        if (!file) return;
+        setSprites(prev => ({ ...prev, [key]: URL.createObjectURL(file) }));
+    },
+    updateProfilePicture,
     members,
     viewSrc,
     setViewSrc,
     notes,
     uploads,
-    addMember,
-    addNote,
-    addUpload,
     familyId,
     calendarDraft,
-    openMessageFromCalendar,
-    openFileFromCalendar,
-    consumeCalendarDraft,
     onLogout: handleLogout,
+    addMember: handleMemberAdded,
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────────
-
-  // Still checking session — show nothing to avoid flash
   if (!authReady) return null;
-
-  // Not logged in — show login page
   if (!authUser) return <LoginPage onLogin={handleLogin} />;
-
-  // Logged in but family data still loading
-  if (loading) {
-    return <div style={{ padding: 40, fontFamily: "Georgia, serif" }}>Loading family data…</div>;
-  }
+  if (loading) return <div style={{ padding: 40, fontFamily: "Georgia, serif" }}>Loading family data…</div>;
 
   return (
     <div style={{
@@ -267,39 +221,24 @@ export default function HeritageHome() {
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:wght@400;600;700;800&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      {/* Logout button — visible only in the main room */}
-      {page === "room" && <button
-        onClick={handleLogout}
-        title="Sign out"
-        style={{
-          position: "fixed",
-          top: 16,
-          left: 20,
-          zIndex: 1000,
-          background: "rgba(255, 253, 247, 0.88)",
-          backdropFilter: "blur(6px)",
-          border: `1px solid ${COLORS.ink}33`,
-          borderRadius: 6,
-          padding: "6px 14px",
-          fontFamily: "'Crimson Text', Georgia, serif",
-          fontSize: 14,
-          color: COLORS.ink,
-          cursor: "pointer",
-          letterSpacing: "0.04em",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-          transition: "background 0.2s, box-shadow 0.2s",
-        }}
-        onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,253,247,1)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.22)"; }}
-        onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,253,247,0.88)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.18)"; }}
-      >
-        Sign out
-      </button>}
-
+      {page === "room" && (
+        <button
+          onClick={handleLogout}
+          style={{
+            position: "fixed", top: 16, left: 20, zIndex: 1000,
+            background: "rgba(255, 253, 247, 0.88)", backdropFilter: "blur(6px)",
+            border: `1px solid ${COLORS.ink}33`, borderRadius: 6,
+            padding: "6px 14px", cursor: "pointer"
+          }}
+        >
+          Sign out
+        </button>
+      )}
 
       <div style={{
         filter: transition ? "blur(18px)" : "none",
         opacity: transition ? 0.6 : 1,
-        transition: "filter 0.45s ease, opacity 0.45s ease, transform 0.45s ease",
+        transition: "filter 0.45s ease, opacity 0.45s ease",
       }}>
         {page === "room" && <RoomScene {...pageProps} />}
         {page === "portrait" && <PortraitPage {...pageProps} />}

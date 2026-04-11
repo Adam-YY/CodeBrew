@@ -356,19 +356,41 @@ export default function RoomScene({
           padding: "6px 14px",
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          gap: 10,
           backdropFilter: "blur(4px)",
           border: "1px solid rgba(212,165,106,0.3)",
         }}
       >
-        <span style={{ fontSize: 22, lineHeight: 1 }}>
-          {currentUser.avatar}
-        </span>
+        {/* Profile Circle */}
+        <div style={{
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.1)"
+        }}>
+          {currentUser.avatar?.startsWith("http") ? (
+            <img 
+              src={currentUser.avatar} 
+              alt="" 
+              style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+            />
+          ) : (
+            <span style={{ fontSize: 18, lineHeight: 1 }}>
+              {currentUser.avatar || "👤"}
+            </span>
+          )}
+        </div>
+
         <span
           style={{
             fontFamily: "'Crimson Text', serif",
             color: COLORS.warmLight,
             fontSize: 14,
+            fontWeight: 600
           }}
         >
           {currentUser.name}

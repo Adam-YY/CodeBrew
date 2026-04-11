@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import { COLORS } from "./colors";
 import { PageContainer } from "./shared";
 import { getLetters } from "@/supabase/queries/getLetter";
@@ -16,6 +16,60 @@ const calculateAge = (dob) => {
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
+};
+
+// Modified to prioritize the actual image URL (avatar) over emojis
+const PortraitImage = ({ member, size = 48, isActive, onUploadClick }) => {
+  const age = calculateAge(member.date_of_birth);
+  const isImage = member.avatar && member.avatar.startsWith("http");
+
+  return (
+    <div 
+      onClick={(e) => {
+        if (isActive && onUploadClick) {
+          e.stopPropagation();
+          onUploadClick();
+        }
+      }}
+      style={{
+        width: size * 1.5,
+        height: size * 1.5,
+        borderRadius: "50%",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: isActive ? COLORS.cream + "40" : COLORS.warm + "20",
+        border: `2px solid ${isActive ? COLORS.accent : COLORS.warm}`,
+        position: "relative",
+        cursor: isActive ? "pointer" : "default",
+      }}
+    >
+      {isImage ? (
+        <img 
+          src={member.avatar} 
+          alt={member.name} 
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+        />
+      ) : (
+        <span style={{ fontSize: size }}>{getEmoji(age, member.gender)}</span>
+      )}
+      
+      {/* Visual indicator that active user can change photo */}
+      {isActive && (
+        <div style={{
+          position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: 0, transition: "opacity 0.2s", color: "white", fontSize: 12
+        }}
+        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+        onMouseLeave={e => e.currentTarget.style.opacity = 0}
+        >
+          Change
+        </div>
+      )}
+    </div>
+  );
 };
 
 const getEmoji = (age, gender) => {
@@ -52,23 +106,24 @@ export default function PortraitPage({
   navigate,
   currentUser,
   setCurrentUser,
+  updateProfilePicture, // Received from HeritageHome
   boomerMode,
   members = [],
   viewSrc,
 }) {
   const safeMembers = Array.isArray(members) ? members : [];
   const safeCurrentUser = currentUser ?? {};
-
+  
   const [letters, setLetters] = useState([]);
   const [now, setNow] = useState(Date.now());
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
-  // Tick for countdown timers
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch letters whenever the selected user changes
   useEffect(() => {
     if (!safeCurrentUser?.id) return;
     const fetchLetters = async () => {
@@ -91,6 +146,19 @@ export default function PortraitPage({
     };
     fetchLetters();
   }, [safeCurrentUser?.id]);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !safeCurrentUser?.id) return;
+
+    setIsUploading(true);
+    const success = await updateProfilePicture(safeCurrentUser.id, file);
+    setIsUploading(false);
+    
+    if (success) {
+      console.log("Profile picture updated successfully!");
+    }
+  };
 
   const getMember = (id) => safeMembers.find((m) => m.id === id);
 
@@ -135,11 +203,7 @@ export default function PortraitPage({
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          {from && (
-            <span style={{ fontSize: 24 }}>
-              {getEmoji(calculateAge(from.date_of_birth), from.gender)}
-            </span>
-          )}
+          {from && <PortraitImage member={from} size={20} isActive={false} />}
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>
               {note.from === safeCurrentUser.id ? "Sent by You" : from?.name}
@@ -164,10 +228,18 @@ export default function PortraitPage({
       navigate={navigate}
       title="Family Portraits"
       boomerMode={boomerMode}
-      description="Tap a family member's portrait to switch to their view. You'll see messages and notes left specifically for that person."
+      description={isUploading ? "Uploading new portrait..." : "Tap a portrait to switch views. Click your own portrait to upload a photo."}
       viewSrc={viewSrc}
     >
-      {/* MEMBERS GRID */}
+      {/* Hidden Upload Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept="image/*" 
+        style={{ display: "none" }} 
+      />
+
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
@@ -180,8 +252,6 @@ export default function PortraitPage({
         ) : (
           safeMembers.map((member) => {
             const isActive = safeCurrentUser?.id === member.id;
-            const age = calculateAge(member.date_of_birth);
-            const emoji = getEmoji(age, member.gender);
             const displayName = member.name || `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim();
 
             return (
@@ -199,11 +269,20 @@ export default function PortraitPage({
                   boxShadow: isActive ? `0 8px 25px ${COLORS.shadow}` : `0 2px 8px rgba(0,0,0,0.1)`,
                   transform: isActive ? "scale(1.05)" : "scale(1)",
                 }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.transform = "scale(1.03)"; }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.transform = "scale(1)"; }}
               >
-                <span style={{ fontSize: 48, lineHeight: 1 }}>{emoji}</span>
-                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, color: isActive ? COLORS.paper : COLORS.ink }}>
+                <PortraitImage 
+                  member={member} 
+                  isActive={isActive} 
+                  onUploadClick={() => fileInputRef.current?.click()} 
+                />
+                
+                <span style={{ 
+                  fontFamily: "'Playfair Display', serif", 
+                  fontSize: 15, 
+                  fontWeight: 600, 
+                  color: isActive ? COLORS.paper : COLORS.ink,
+                  textAlign: "center" 
+                }}>
                   {displayName}
                 </span>
                 <span style={{ fontSize: 12, color: isActive ? COLORS.cream : COLORS.inkLight, fontFamily: "'Crimson Text', serif" }}>
@@ -215,14 +294,15 @@ export default function PortraitPage({
         )}
       </div>
 
-      {/* LETTERS SECTION */}
       <div style={{ marginTop: 36 }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, textAlign: "center", color: COLORS.ink, marginBottom: 24 }}>
           Letters for {safeCurrentUser?.name || safeCurrentUser?.first_name || "Unknown"}
         </h2>
 
+        {/* ... Rest of the letters section remains same ... */}
         <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
-          {sections.incomingUnlocked.length > 0 && (
+           {/* ... Same logic as your provided code ... */}
+           {sections.incomingUnlocked.length > 0 && (
             <section>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 16 }}>Messages for Them</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{sections.incomingUnlocked.map(renderNote)}</div>
