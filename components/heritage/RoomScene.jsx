@@ -1,7 +1,81 @@
 ﻿"use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { COLORS } from "./colors";
 import { SpriteImg } from "./shared";
+
+
+const DUST = {
+  count: 150,       
+  sizeMin: 2,            
+  sizeMax: 6,           
+  opacityMin: 0.25,      
+  opacityMax: 0.7,       
+  durationMin: 8,        
+  durationMax: 20,       
+  driftX: 80,            
+  driftY: 60,            
+  glowRadius: 6,         
+  glowColor: "rgba(212,165,106,0.6)", 
+  color: "rgba(255,220,160,0.85)",     
+};
+
+
+function DustParticles() {
+  const particles = useMemo(() =>
+    Array.from({ length: DUST.count }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      size: DUST.sizeMin + Math.random() * (DUST.sizeMax - DUST.sizeMin),
+      opacity: DUST.opacityMin + Math.random() * (DUST.opacityMax - DUST.opacityMin),
+      duration: DUST.durationMin + Math.random() * (DUST.durationMax - DUST.durationMin),
+      delay: -(Math.random() * DUST.durationMax),
+      driftX: -DUST.driftX + Math.random() * DUST.driftX * 2,
+      driftY: -DUST.driftY + Math.random() * (DUST.driftY * 0.5),
+    })), []);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 2,
+        pointerEvents: "none",
+        overflow: "hidden",
+      }}
+    >
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          style={{
+            position: "absolute",
+            left: p.left,
+            top: p.top,
+            width: p.size,
+            height: p.size,
+            borderRadius: "50%",
+            background: DUST.color,
+            opacity: p.opacity,
+            boxShadow: DUST.glowRadius
+              ? `0 0 ${DUST.glowRadius}px ${DUST.glowColor}`
+              : "none",
+            animation: `dust-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            "--drift-x": `${p.driftX}px`,
+            "--drift-y": `${p.driftY}px`,
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes dust-float {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          25% { opacity: ${DUST.opacityMax}; transform: translate(calc(var(--drift-x) * 0.4), calc(var(--drift-y) * 0.3)) scale(1.1); }
+          50% { transform: translate(var(--drift-x), var(--drift-y)) scale(0.9); opacity: ${DUST.opacityMin + (DUST.opacityMax - DUST.opacityMin) * 0.6}; }
+          75% { opacity: ${DUST.opacityMin}; transform: translate(calc(var(--drift-x) * 0.6), calc(var(--drift-y) * 0.7)) scale(1.05); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function RoomScene({
   navigate,
@@ -45,7 +119,7 @@ export default function RoomScene({
       id: "portrait",
       label: "Switch Users",
       desc: "Switch between family members to see messages left for each person",
-      x: "82.5%",
+      x: "84.5%",
       y: "76%",
       size: "25.5%",
       emoji: "🖼️",
@@ -74,7 +148,7 @@ export default function RoomScene({
       emoji: "✉️",
       asset: "/assets/letter.png",
       hoverAsset: "/assets/letteropen.png",
-      labelPos: "top",
+      labelPos: "left",
     },
     {
       id: "tree",
@@ -137,6 +211,9 @@ export default function RoomScene({
           zIndex: 1,
         }}
       />
+
+      {/* Floating dust particles */}
+      <DustParticles />
 
       {/* Hidden file input for view upload */}
       <input
