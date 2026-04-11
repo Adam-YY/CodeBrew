@@ -9,6 +9,7 @@ import CassettePage from "./CassettePage";
 import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
 import LoginPage from "./LoginPage";
+import { BlurredRoomBackground } from "./shared";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
 import { createPerson } from "@/supabase/queries/person";
@@ -294,13 +295,18 @@ export default function HeritageHome() {
         Sign out
       </button>}
 
-      <div style={{ opacity: transition ? 0 : 1, transition: "all 0.4s ease" }}>
-        {page === "room"     && <RoomScene      {...pageProps} />}
-        {page === "portrait" && <PortraitPage   {...pageProps} />}
-        {page === "calendar" && <CalendarPage   {...pageProps} />}
-        {page === "cassette" && <CassettePage   {...pageProps} />}
-        {page === "tree"     && <FamilyTreePage {...pageProps} />}
-        {page === "letters"  && <LettersPage    {...pageProps} />}
+
+      <div style={{
+        filter: transition ? "blur(18px)" : "none",
+        opacity: transition ? 0.6 : 1,
+        transition: "filter 0.45s ease, opacity 0.45s ease, transform 0.45s ease",
+      }}>
+        {page === "room" && <RoomScene {...pageProps} />}
+        {page === "portrait" && <PortraitPage {...pageProps} />}
+        {page === "calendar" && <CalendarPage {...pageProps} />}
+        {page === "cassette" && <CassettePage {...pageProps} />}
+        {page === "tree" && <FamilyTreePage {...pageProps} />}
+        {page === "letters" && <LettersPage {...pageProps} />}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { COLORS } from "./colors";
 import { PageContainer, SpriteImg } from "./shared";
 import { createPerson } from "@/supabase/queries/person";
@@ -7,6 +7,7 @@ import { createPerson } from "@/supabase/queries/person";
 
 export default function FamilyTreePage({ navigate, boomerMod, sprites, members, notes, addMember, familyId, viewSrc }) {
   const [selectedMember, setSelectedMember] = useState(null);
+  const genScrollRef = useRef(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
@@ -103,14 +104,21 @@ export default function FamilyTreePage({ navigate, boomerMod, sprites, members, 
         }}>+ Add Member</button>
       </div>
 
-      <div style={{
-        background: COLORS.paper, 
-        borderRadius: 16, 
-        padding: "32px 24px",
-        border: `1px solid ${COLORS.warm}40`, 
-        overflowX: "auto",
-        boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
-      }}>
+      <div
+        ref={genScrollRef}
+        onWheel={(e) => {
+          if (e.deltaY === 0) return;
+          e.preventDefault();
+          genScrollRef.current.scrollLeft += e.deltaY;
+        }}
+        style={{
+          background: COLORS.paper,
+          borderRadius: 16,
+          padding: "32px 24px",
+          border: `1px solid ${COLORS.warm}40`,
+          overflowX: "auto",
+          boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
+        }}>
         <div style={{ display: "flex", gap: 40, minWidth: "max-content", alignItems: "flex-start" }}>
           {generations.map(gen => (
             <div key={gen.generation} style={{ width: 220, flexShrink: 0 }}>
