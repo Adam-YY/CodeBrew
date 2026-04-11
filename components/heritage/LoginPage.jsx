@@ -113,7 +113,7 @@ export default function LoginPage({ onLogin }) {
           fontFamily: "'Playfair Display', Georgia, serif",
           fontSize: 30, fontWeight: 700, margin: "0 0 4px", letterSpacing: "-0.01em",
         }}>
-          Heritage Home
+          Hand me down
         </h1>
         <p style={{ fontSize: 15, opacity: 0.55, margin: "0 0 32px", fontStyle: "italic" }}>
           Your family's story, preserved.
