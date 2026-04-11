@@ -336,7 +336,7 @@ export default function RoomScene({
           transition: "all 0.3s",
         }}
       >
-        {boomerMode ? "i" : "i"} Guide Mode {boomerMode ? "ON" : "OFF"}
+        Boomer Mode: {boomerMode ? "ON" : "OFF"}
       </button>
     </div>
     </div>
