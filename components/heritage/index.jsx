@@ -211,7 +211,7 @@ export default function HeritageHome() {
 
       <div style={{
         opacity: transition ? 0 : 1,
-        transform: transition ? "scale(0.98)" : "scale(1)",
+        transform: transition ? "scale(0.98)" : "none",
         transition: "all 0.4s ease",
       }}>
         {page === "room" && <RoomScene {...pageProps} />}

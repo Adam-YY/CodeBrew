@@ -36,7 +36,7 @@ export function PageContainer({ children, title, navigate, boomerMode, descripti
     }}>
       {/* Live blurred room scene background */}
       <div style={{
-        position: "absolute", inset: 0,
+        position: "fixed", inset: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
         pointerEvents: "none", zIndex: 0, overflow: "hidden",
       }}>
