@@ -362,39 +362,43 @@ export default function RoomScene({
         }}
       >
         {/* Profile Circle */}
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(255,255,255,0.1)"
-        }}>
-          {currentUser.avatar?.startsWith("http") ? (
-            <img 
-              src={currentUser.avatar} 
-              alt="" 
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-            />
-          ) : (
-            <span style={{ fontSize: 18, lineHeight: 1 }}>
-              {currentUser.avatar || "👤"}
-            </span>
-          )}
-        </div>
+        {currentUser && (
+          <div style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.1)"
+          }}>
+            {currentUser.avatar?.startsWith("http") ? (
+              <img 
+                src={currentUser.avatar} 
+                alt="" 
+                style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+              />
+            ) : (
+              <span style={{ fontSize: 18, lineHeight: 1 }}>
+                {currentUser.avatar || "👤"}
+              </span>
+            )}
+          </div>
+        )}
 
-        <span
-          style={{
-            fontFamily: "'Crimson Text', serif",
-            color: COLORS.warmLight,
-            fontSize: 14,
-            fontWeight: 600
-          }}
-        >
-          {currentUser.name}
-        </span>
+        {currentUser && (
+          <span
+            style={{
+              fontFamily: "'Crimson Text', serif",
+              color: COLORS.warmLight,
+              fontSize: 14,
+              fontWeight: 600
+            }}
+          >
+            {currentUser.name}
+          </span>
+        )}
       </div>
 
       {/* Customize view button */}
