@@ -88,6 +88,7 @@ export default function RoomScene({
   members,
   viewSrc,
   setViewSrc,
+  onLogout,
 }) {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [showCustomize, setShowCustomize] = useState(false);
@@ -176,7 +177,6 @@ export default function RoomScene({
     <div
       style={{
         width: "100%",
-        maxWidth: 1920,
         aspectRatio: "1920 / 1080",
         position: "relative",
         margin: "0 auto",
@@ -362,39 +362,43 @@ export default function RoomScene({
         }}
       >
         {/* Profile Circle */}
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(255,255,255,0.1)"
-        }}>
-          {currentUser.avatar?.startsWith("http") ? (
-            <img 
-              src={currentUser.avatar} 
-              alt="" 
-              style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-            />
-          ) : (
-            <span style={{ fontSize: 18, lineHeight: 1 }}>
-              {currentUser.avatar || "👤"}
-            </span>
-          )}
-        </div>
+        {currentUser && (
+          <div style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,255,255,0.1)"
+          }}>
+            {currentUser.avatar?.startsWith("http") ? (
+              <img 
+                src={currentUser.avatar} 
+                alt="" 
+                style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+              />
+            ) : (
+              <span style={{ fontSize: 18, lineHeight: 1 }}>
+                {currentUser.avatar || "👤"}
+              </span>
+            )}
+          </div>
+        )}
 
-        <span
-          style={{
-            fontFamily: "'Crimson Text', serif",
-            color: COLORS.warmLight,
-            fontSize: 14,
-            fontWeight: 600
-          }}
-        >
-          {currentUser.name}
-        </span>
+        {currentUser && (
+          <span
+            style={{
+              fontFamily: "'Crimson Text', serif",
+              color: COLORS.warmLight,
+              fontSize: 14,
+              fontWeight: 600
+            }}
+          >
+            {currentUser.name}
+          </span>
+        )}
       </div>
 
       {/* Customize view button */}
@@ -420,6 +424,31 @@ export default function RoomScene({
         }}
       >
         Change View
+      </button>
+
+      {/* Sign out */}
+      <button
+        onClick={onLogout}
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          zIndex: 20,
+          background: "rgba(90,58,40,0.8)",
+          border: "1px solid rgba(212,165,106,0.3)",
+          borderRadius: 12,
+          padding: "8px 16px",
+          cursor: "pointer",
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 13,
+          color: COLORS.warmLight,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          transition: "all 0.3s",
+        }}
+      >
+        Sign out
       </button>
 
       {/* Boomer mode toggle */}
