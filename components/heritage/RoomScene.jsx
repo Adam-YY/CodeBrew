@@ -88,6 +88,7 @@ export default function RoomScene({
   members,
   viewSrc,
   setViewSrc,
+  onLogout,
 }) {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [showCustomize, setShowCustomize] = useState(false);
@@ -169,17 +170,18 @@ export default function RoomScene({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "100vh",
-        width: "100%",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
       }}
     >
     <div
       style={{
-        width: "100%",
-        maxWidth: 1920,
-        aspectRatio: "1920 / 1080",
+        minWidth: "100vw",
+        minHeight: "100vh",
+        width: "max(100vw, calc(100vh * 16 / 9))",
+        height: "max(100vh, calc(100vw * 9 / 16))",
         position: "relative",
-        margin: "0 auto",
       }}
     >
       {/* Window view layer — sits beneath the background, visible through transparent window pixels */}
@@ -424,6 +426,31 @@ export default function RoomScene({
         }}
       >
         Change View
+      </button>
+
+      {/* Sign out */}
+      <button
+        onClick={onLogout}
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          zIndex: 20,
+          background: "rgba(90,58,40,0.8)",
+          border: "1px solid rgba(212,165,106,0.3)",
+          borderRadius: 12,
+          padding: "8px 16px",
+          cursor: "pointer",
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 13,
+          color: COLORS.warmLight,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          transition: "all 0.3s",
+        }}
+      >
+        Sign out
       </button>
 
       {/* Boomer mode toggle */}

@@ -9,6 +9,7 @@ import CassettePage from "./CassettePage";
 import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
 import LoginPage from "./LoginPage";
+import { BlurredRoomBackground } from "./shared";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
 import { supabase } from "@/supabase/client";
@@ -234,19 +235,6 @@ export default function HeritageHome() {
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:wght@400;600;700;800&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      {page === "room" && (
-        <button
-          onClick={handleLogout}
-          style={{
-            position: "fixed", top: 16, left: 20, zIndex: 1000,
-            background: "rgba(255, 253, 247, 0.88)", backdropFilter: "blur(6px)",
-            border: `1px solid ${COLORS.ink}33`, borderRadius: 6,
-            padding: "6px 14px", cursor: "pointer"
-          }}
-        >
-          Sign out
-        </button>
-      )}
 
       {/* Toast shown when a locked page is tapped */}
       {lockedFlash && (
@@ -267,6 +255,7 @@ export default function HeritageHome() {
         opacity: transition ? 0.6 : 1,
         transition: "filter 0.45s ease, opacity 0.45s ease",
       }}>
+        {page !== "room" && <BlurredRoomBackground viewSrc={viewSrc} />}
         {page === "room" && <RoomScene {...pageProps} />}
         {page === "portrait" && <PortraitPage {...pageProps} />}
         {page === "calendar" && <CalendarPage {...pageProps} />}
