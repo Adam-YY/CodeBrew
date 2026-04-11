@@ -170,18 +170,17 @@ export default function RoomScene({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden",
+        minHeight: "100vh",
+        width: "100%",
       }}
     >
     <div
       style={{
-        minWidth: "100vw",
-        minHeight: "100vh",
-        width: "max(100vw, calc(100vh * 16 / 9))",
-        height: "max(100vh, calc(100vw * 9 / 16))",
+        width: "100%",
+        maxWidth: 1920,
+        aspectRatio: "1920 / 1080",
         position: "relative",
+        margin: "0 auto",
       }}
     >
       {/* Window view layer — sits beneath the background, visible through transparent window pixels */}

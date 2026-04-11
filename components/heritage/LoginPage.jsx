@@ -84,7 +84,7 @@ export default function LoginPage({ onLogin }) {
   return (
     <div style={{
       minHeight: "100vh",
-      background: `${COLORS.bg} url("/assets/bg_blur.png") center / cover no-repeat`,
+      background: `${COLORS.bg} url('/assets/bg_blur.png') center/cover no-repeat`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",

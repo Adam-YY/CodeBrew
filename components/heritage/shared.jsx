@@ -35,10 +35,9 @@ export function BlurredRoomBackground({ viewSrc }) {
       pointerEvents: "none", zIndex: 0, overflow: "hidden",
     }}>
       <div style={{
-        minWidth: "100vw", minHeight: "100vh",
-        width: "max(100vw, calc(100vh * 16 / 9))",
-        height: "max(100vh, calc(100vw * 9 / 16))",
-        position: "relative",
+        width: "100%", maxWidth: 1920,
+        aspectRatio: "1920 / 1080",
+        position: "relative", margin: "0 auto",
         filter: "blur(9.2px)", transform: "scale(1.05)",
       }}>
         <img src={viewSrc || "/assets/view.png"} alt="" style={{
