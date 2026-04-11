@@ -14,6 +14,7 @@ export default function CalendarPage({
   uploads,
   openMessageFromCalendar,
   openFileFromCalendar,
+  viewSrc,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
@@ -77,7 +78,7 @@ export default function CalendarPage({
   }, [uploads]);
 
   return (
-    <PageContainer navigate={navigate} title="Family Calendar" boomerMode={boomerMode}
+    <PageContainer navigate={navigate} title="Family Calendar" boomerMode={boomerMode} viewSrc={viewSrc}
       description="This calendar shows family traditions and special messages on their dates. Tap a date with a dot to see the notes for that day.">
 
       {/* Month selector */}

@@ -12,11 +12,12 @@ export default function RoomScene({
   sprites,
   updateSprite,
   members,
+  viewSrc,
+  setViewSrc,
 }) {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [showCustomize, setShowCustomize] = useState(false);
   const [showPortraitPicker, setShowPortraitPicker] = useState(false);
-  const [viewSrc, setViewSrc] = useState("/assets/view.png");
   const viewInputRef = useRef(null);
 
   const handleViewUpload = (e) => {

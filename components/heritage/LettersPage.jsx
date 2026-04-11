@@ -12,6 +12,7 @@ export default function LettersPage({
   addNote,
   calendarDraft,
   consumeCalendarDraft,
+  viewSrc,
 }) {
   const today = new Date();
   const [composeOpen, setComposeOpen] = useState(false);
@@ -64,7 +65,8 @@ export default function LettersPage({
 
   return (
     <PageContainer navigate={navigate} title="Family Letters" boomerMode={boomerMode}
-      description="These are messages left for you by your family. Some letters are locked until a special date — they will open automatically when the time comes.">
+      description="These are messages left for you by your family. Some letters are locked until a special date — they will open automatically when the time comes."
+      viewSrc={viewSrc}>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 18 }}>
         <button onClick={() => setComposeOpen(true)} style={{

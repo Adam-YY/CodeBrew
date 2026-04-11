@@ -57,6 +57,7 @@ export default function PortraitPage({
   boomerMode,
   members = [],
   notes = [],
+  viewSrc,
 }) {
   const safeMembers = Array.isArray(members) ? members : [];
   const safeNotes = Array.isArray(notes) ? notes : [];
@@ -94,6 +95,7 @@ export default function PortraitPage({
       title="Family Portraits"
       boomerMode={boomerMode}
       description="Tap a family member's portrait to switch to their view. You'll see messages and notes left specifically for that person."
+      viewSrc={viewSrc}
     >
       {/* MEMBERS GRID */}
       <div

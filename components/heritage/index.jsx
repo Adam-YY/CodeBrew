@@ -25,6 +25,7 @@ export default function HeritageHome() {
   const [transition, setTransition] = useState(false);
   const [sprites, setSprites] = useState({});
   const [calendarDraft, setCalendarDraft] = useState(null);
+  const [viewSrc, setViewSrc] = useState("/assets/view.png");
 
   const [familyId, setFamilyId] = useState("bd1af34e-76cc-4bad-a302-c090957ad6d8"); //temporary
 
@@ -108,6 +109,8 @@ export default function HeritageHome() {
     sprites,
     updateSprite,
     members,
+    viewSrc,
+    setViewSrc,
     notes,
     uploads,
     addMember,
