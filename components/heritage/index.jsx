@@ -1,17 +1,16 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 import { COLORS } from "./colors";
-import { DEFAULT_AVATARS, INITIAL_MEMBERS, INITIAL_NOTES, INITIAL_UPLOADS } from "./data";
+import { DEFAULT_AVATARS } from "./data";
 import RoomScene from "./RoomScene";
 import PortraitPage from "./PortraitPage";
 import CalendarPage from "./CalendarPage";
 import CassettePage from "./CassettePage";
 import FamilyTreePage from "./FamilyTreePage";
 import LettersPage from "./LettersPage";
-import { BlurredRoomBackground } from "./shared";
+import LoginPage from "./LoginPage";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
-import { createPerson } from "@/supabase/queries/person";
 import { supabase } from "@/supabase/client";
 
 export default function HeritageHome() {
@@ -21,6 +20,9 @@ export default function HeritageHome() {
   const [uploads, setUploads] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
 
+  const [authUser, setAuthUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [boomerMode, setBoomerMode] = useState(false);
   const [transition, setTransition] = useState(false);
@@ -28,142 +30,90 @@ export default function HeritageHome() {
   const [calendarDraft, setCalendarDraft] = useState(null);
   const [viewSrc, setViewSrc] = useState("/assets/view.png");
 
-  const [familyId, setFamilyId] = useState("bd1af34e-76cc-4bad-a302-c090957ad6d8"); //temporary
+  const [familyId, setFamilyId] = useState(null);
 
-  const navigate = (target) => {
-    setTransition(true);
-    setTimeout(() => { setPage(target); setTransition(false); }, 400);
-  };
-
-  const openMessageFromCalendar = (eventDate) => {
-    setCalendarDraft({ target: "letters", eventDate });
-    navigate("letters");
-  };
-
-  const openFileFromCalendar = (eventDate) => {
-    setCalendarDraft({ target: "cassette", eventDate });
-    navigate("cassette");
-  };
-
-  const consumeCalendarDraft = (target) => {
-    setCalendarDraft((prev) => (prev?.target === target ? null : prev));
-  };
-
-  const nextAvatar = useMemo(() => {
-    const used = new Set(members.map(member => member.avatar));
-    return DEFAULT_AVATARS.find(avatar => !used.has(avatar)) || DEFAULT_AVATARS[0];
-  }, [members]);
-
-  const addMember = ({ name, generation, role, parentId }) => {
-    const trimmedName = name.trim();
-    if (!trimmedName) return null;
-    const gen = Number(generation) || 1;
-    const newMember = {
-      id: `m-${Date.now().toString(36)}`,
-      name: trimmedName,
-      role: role?.trim() || (gen === 1 ? "Elder" : gen === 2 ? "Parent" : gen === 3 ? "Child" : "Family"),
-      avatar: nextAvatar,
-      born: null,
-      parentId: parentId || null,
-      generation: gen,
-    };
-    setMembers(prev => [...prev, newMember]);
-    return newMember;
-  };
-
-  const addNote = (note) => {
-    setNotes(prev => [
-      {
-        ...note,
-        id: `n-${Date.now().toString(36)}`,
-        createdAt: new Date().toISOString().split("T")[0],
-      },
-      ...prev,
-    ]);
-  };
-
-  const addUpload = (upload) => {
-    setUploads(prev => [
-      {
-        ...upload,
-        id: `u-${Date.now().toString(36)}`,
-        date: new Date().toISOString().split("T")[0],
-      },
-      ...prev,
-    ]);
-  };
-
-  const updateSprite = (key, file) => {
-    if (!file) return;
-    setSprites(prev => {
-      if (prev[key]) URL.revokeObjectURL(prev[key]);
-      return { ...prev, [key]: URL.createObjectURL(file) };
-    });
-  };
-
-  const pageProps = {
-    navigate,
-    currentUser,
-    setCurrentUser,
-    boomerMode,
-    setBoomerMode,
-    sprites,
-    updateSprite,
-    members,
-    viewSrc,
-    setViewSrc,
-    notes,
-    uploads,
-    addMember,
-    addNote,
-    addUpload,
-    familyId,
-    calendarDraft,
-    openMessageFromCalendar,
-    openFileFromCalendar,
-    consumeCalendarDraft,
-  };
-
+  // ── Auth Logic ──────────────────────────────────────────────────────────────
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthUser(session?.user ?? null);
+      setAuthReady(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = (user) => setAuthUser(user);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setLoading(true);
+    setAuthUser(null);
+    setCurrentUser(null);
+    setFamilyId(null);
+    setMembers([]);
+    setUploads([]);
+    setNotes([]);
+    setPage("room");
+  };
+
+  // ── Data Loading ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!authUser) return;
+
     const loadData = async () => {
+      setLoading(true);
       try {
-        console.log("Loading family data...");
+        const { data: familyData } = await supabase
+          .from("family")
+          .select("id")
+          .eq("owner_id", authUser.id)
+          .single();
 
-        const familyMembers = await getFamilyMembers(familyId);
+        if (!familyData) {
+          setLoading(false);
+          return;
+        }
 
-        console.log("Raw DB members:", familyMembers);
+        const resolvedFamilyId = familyData.id;
+        setFamilyId(resolvedFamilyId);
 
-        const mappedMembers = familyMembers.map((m, index) => ({
-          id: m.id,
-          name: `${m.first_name} ${m.last_name}`,
-          avatar: DEFAULT_AVATARS[index % DEFAULT_AVATARS.length],
-          role: "Family",
-          born: m.date_of_birth,
-          parentId: null,
-          generation: m.generation || 1,
+        const familyMembers = await getFamilyMembers(resolvedFamilyId);
+
+        // Map members and generate Signed URLs for private bucket storage
+        const mappedMembers = await Promise.all(familyMembers.map(async (m, index) => {
+          let avatarUrl = DEFAULT_AVATARS[index % DEFAULT_AVATARS.length];
+          
+          if (m.profile_picture_path) {
+            const { data, error } = await supabase.storage
+              .from("profile")
+              .createSignedUrl(m.profile_picture_path, 3600);
+            
+            if (data?.signedUrl) avatarUrl = data.signedUrl;
+          }
+
+          return {
+            ...m,
+            id: m.id,
+            name: `${m.first_name} ${m.last_name}`,
+            avatar: avatarUrl, 
+            profile_picture_path: m.profile_picture_path, 
+            role: "Family",
+            born: m.date_of_birth,
+            parentId: null,
+            generation: m.generation || 1,
+          };
         }));
-
-        console.log("Mapped members:", mappedMembers);
 
         setMembers(mappedMembers);
 
-        const firstUser = mappedMembers[0] || null;
-        setCurrentUser(firstUser);
-
-        console.log("Current user:", firstUser);
-
-        // load uploads AFTER user is ready
-        const { data, error } = await supabase
-          .from("message")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Upload fetch error:", error);
-        } else {
-          console.log("Messages:", data);
-          setUploads(data || []);
-        }
+        // IMPORTANT: Ensure currentUser is set from the mappedMembers 
+        // so it contains the signed 'avatar' URL for the top right corner
+        const currentInFamily = mappedMembers.find(m => m.id === authUser.id) || mappedMembers[0];
+        setCurrentUser(currentInFamily);
 
       } catch (err) {
         console.error("Error loading data:", err);
@@ -173,34 +123,95 @@ export default function HeritageHome() {
     };
 
     loadData();
-  }, []);
+  }, [authUser]);
 
-  useEffect(() => {
-    const loadUploads = async () => {
-      if (!currentUser) return;
+  // ── Actions ────────────────────────────────────────────────────────────────
+  
+  const updateProfilePicture = async (personId, file) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${personId}/${Date.now()}.${fileExt}`;
 
-      console.log("📦 Loading uploads/messages...");
+      // 1. Upload to 'profile' bucket
+      const { error: uploadError } = await supabase.storage
+        .from("profile")
+        .upload(filePath, file, { upsert: true });
 
-      const { data, error } = await supabase
-        .from("message")
-        .select("*")
-        .order("created_at", { ascending: false });
+      if (uploadError) throw uploadError;
 
-      if (error) {
-        console.error("Upload fetch error:", error);
-        return;
+      // 2. Update 'person' table column: profile_picture_path
+      const { error: dbError } = await supabase
+        .from("person")
+        .update({ profile_picture_path: filePath })
+        .eq("id", personId);
+
+      if (dbError) throw dbError;
+
+      // 3. Generate a fresh Signed URL for the new file
+      const { data: signedData } = await supabase.storage
+        .from("profile")
+        .createSignedUrl(filePath, 3600);
+
+      const newAvatarUrl = signedData?.signedUrl;
+
+      // 4. Update Local Members State
+      setMembers(prev => prev.map(m => 
+        m.id === personId 
+          ? { ...m, avatar: newAvatarUrl, profile_picture_path: filePath } 
+          : m
+      ));
+
+      // 5. FIX: Update currentUser state immediately so top-right corner updates
+      if (currentUser?.id === personId) {
+        setCurrentUser(prev => ({
+          ...prev,
+          avatar: newAvatarUrl,
+          profile_picture_path: filePath
+        }));
       }
 
-      console.log("📦 Messages from DB:", data);
-      setUploads(data || []);
-    };
+      return true;
+    } catch (err) {
+      console.error("Upload failed:", err);
+      return false;
+    }
+  };
 
-    loadUploads();
-  }, [currentUser]);
+  const navigate = (target) => {
+    setTransition(true);
+    setTimeout(() => { setPage(target); setTransition(false); }, 400);
+  };
 
-  if (loading || !currentUser) {
-    return <div style={{ padding: 40 }}>Loading family data...</div>;
-  }
+  const handleMemberAdded = (newMember) => {
+    setMembers((prev) => [...prev, newMember]);
+  };
+
+  const pageProps = {
+    navigate,
+    currentUser,
+    setCurrentUser,
+    boomerMode,
+    setBoomerMode,
+    sprites,
+    updateSprite: (key, file) => {
+        if (!file) return;
+        setSprites(prev => ({ ...prev, [key]: URL.createObjectURL(file) }));
+    },
+    updateProfilePicture,
+    members,
+    viewSrc,
+    setViewSrc,
+    notes,
+    uploads,
+    familyId,
+    calendarDraft,
+    onLogout: handleLogout,
+    addMember: handleMemberAdded,
+  };
+
+  if (!authReady) return null;
+  if (!authUser) return <LoginPage onLogin={handleLogin} />;
+  if (loading) return <div style={{ padding: 40, fontFamily: "Georgia, serif" }}>Loading family data…</div>;
 
   return (
     <div style={{
@@ -210,12 +221,24 @@ export default function HeritageHome() {
     }}>
       <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:wght@400;600;700;800&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      {page !== "room" && <BlurredRoomBackground viewSrc={viewSrc} />}
+      {page === "room" && (
+        <button
+          onClick={handleLogout}
+          style={{
+            position: "fixed", top: 16, left: 20, zIndex: 1000,
+            background: "rgba(255, 253, 247, 0.88)", backdropFilter: "blur(6px)",
+            border: `1px solid ${COLORS.ink}33`, borderRadius: 6,
+            padding: "6px 14px", cursor: "pointer"
+          }}
+        >
+          Sign out
+        </button>
+      )}
 
       <div style={{
         filter: transition ? "blur(18px)" : "none",
         opacity: transition ? 0.6 : 1,
-        transition: "filter 0.45s ease, opacity 0.45s ease, transform 0.45s ease",
+        transition: "filter 0.45s ease, opacity 0.45s ease",
       }}>
         {page === "room" && <RoomScene {...pageProps} />}
         {page === "portrait" && <PortraitPage {...pageProps} />}

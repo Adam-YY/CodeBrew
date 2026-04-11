@@ -47,7 +47,7 @@ export default function LettersPage({
   const [letters, setLetters] = useState([]);
   const [composeOpen, setComposeOpen] = useState(false);
   const [toMember, setToMember] = useState("all");
-  const [noteType, setNoteType] = useState("Letter"); // Match MessageType case
+  const [noteType, setNoteType] = useState("Letter"); 
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [unlockDate, setUnlockDate] = useState("");
@@ -142,6 +142,10 @@ export default function LettersPage({
   const renderNote = (note) => {
     const from = getMember(note.from);
     const locked = isLocked(note);
+    
+    // Check if we should use an image or an emoji
+    const isImageAvatar = from?.avatar?.startsWith("http");
+
     return (
       <div key={note.id} style={{
         background: locked ? "#f5f0e8" : COLORS.paper,
@@ -160,9 +164,22 @@ export default function LettersPage({
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          {from && <span style={{ fontSize: 24 }}>{from.avatar}</span>}
+          {/* Updated Avatar Logic */}
+          <div style={{ 
+            width: 32, height: 32, borderRadius: "50%", overflow: "hidden", 
+            background: "rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "center" 
+          }}>
+            {isImageAvatar ? (
+              <img src={from.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <span style={{ fontSize: 24 }}>{from?.avatar || "👤"}</span>
+            )}
+          </div>
+          
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>{note.from === currentUser.id ? "Sent by You" : from?.name}</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: 14 }}>
+              {note.from === currentUser.id ? "Sent by You" : from?.name}
+            </div>
             <div style={{ fontSize: 11, color: COLORS.inkLight }}>{note.type} • {note.to === null ? "Everyone" : "Private"}</div>
           </div>
         </div>

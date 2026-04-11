@@ -7,6 +7,7 @@ export const createPerson = async ({
   date_of_birth = null,
   gender = null,
   family_id,
+  profile_picture_path = null,
 }) => {
   console.log("Creating person:", {
     first_name,
@@ -27,6 +28,7 @@ export const createPerson = async ({
         date_of_birth,
         gender,
         generation,
+        profile_picture_path,
       },
     ])
     .select()

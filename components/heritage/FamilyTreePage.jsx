@@ -1,350 +1,296 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { COLORS } from "./colors";
-import { PageContainer, SpriteImg } from "./shared";
+import { PageContainer } from "./shared";
 import { createPerson } from "@/supabase/queries/person";
+import { supabase } from "@/supabase/client";
 
+/* --- Sub-Component: Handles Private Image Fetching --- */
+const FamilyMemberAvatar = ({ path, gender, size = 18 }) => {
+  const [signedUrl, setSignedUrl] = useState(null);
+  const fallbackEmoji = gender === "F" ? "👩" : "👨";
 
-export default function FamilyTreePage({ navigate, boomerMod, sprites, members, notes, addMember, familyId, viewSrc }) {
+  useEffect(() => {
+    // If path is a URL (signed or public) or a path in the bucket
+    if (path && (path.startsWith("http") || path.includes("/"))) {
+      
+      // If it's already a full URL (like from local state update), use it
+      if (path.startsWith("http")) {
+        setSignedUrl(path);
+        return;
+      }
+
+      // Otherwise, fetch a signed URL for the private path
+      const fetchSignedUrl = async () => {
+        try {
+          const { data, error } = await supabase.storage
+            .from("profile")
+            .createSignedUrl(path, 3600); // Valid for 1 hour
+
+          if (error) throw error;
+          setSignedUrl(data.signedUrl);
+        } catch (err) {
+          console.error("Error signing URL:", err);
+        }
+      };
+
+      fetchSignedUrl();
+    }
+  }, [path]);
+
+  if (signedUrl) {
+    return (
+      <img 
+        src={signedUrl} 
+        alt="Profile" 
+        style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+      />
+    );
+  }
+
+  return <span style={{ fontSize: size }}>{path && path.length < 4 ? path : fallbackEmoji}</span>;
+};
+
+/* --- Main Component --- */
+export default function FamilyTreePage({ navigate, boomerMod, members, notes, addMember, familyId, viewSrc}) {
   const [selectedMember, setSelectedMember] = useState(null);
-  const genScrollRef = useRef(null);
+  
+  // Form State
   const [showAdd, setShowAdd] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
   const [newGen, setNewGen] = useState("3");
-  const [newRole, setNewRole] = useState("");
-  const [newParent, setNewParent] = useState("");
   const [newGender, setNewGender] = useState("M");
   const [newDOB, setNewDOB] = useState("");
+  const [uploading, setUploading] = useState(false);
+  
+  // Image Upload State
+  const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  // Handle Image Preview for Modal
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(imageFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [imageFile]);
 
   const generations = useMemo(() => {
-    console.log("members:", members);
     if (!members || members.length === 0) return [];
-
     const grouped = members.reduce((acc, member) => {
-      // Force conversion to number and handle potential undefined/null
       const genValue = parseInt(member.generation, 10) || 1;
-      console.log(`Processing member: ${member.name}, generation: ${member.generation} (parsed: ${genValue})`);
-      
       if (!acc[genValue]) acc[genValue] = [];
       acc[genValue].push(member);
       return acc;
     }, {});
-
     const keys = Object.keys(grouped).map(Number);
-    // If no keys exist, default to 1
     const maxGen = keys.length > 0 ? Math.max(...keys) : 1;
-    
     return Array.from({ length: maxGen }, (_, i) => ({
       generation: i + 1,
       members: grouped[i + 1] || []
     }));
   }, [members]);
 
-  const getMember = (id) => members.find(m => m.id === id);
-
-  const memberNotes = selectedMember ? notes.filter(n => n.from === selectedMember.id) : [];
-
   const handleAddMember = async () => {
+    if (!newFirstName || !newLastName) return alert("Please enter a name.");
+    
+    setUploading(true);
     try {
+      let finalPath = newGender === "M" ? "👨" : "👩"; 
+
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${familyId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile') 
+          .upload(filePath, imageFile);
+
+        if (uploadError) throw uploadError;
+        
+        // Use the relative path for the database
+        finalPath = filePath;
+      }
 
       const created = await createPerson({
-        first_name: newFirstName,
-        last_name: newLastName,
+        first_name: newFirstName.trim(),
+        last_name: newLastName.trim(),
         generation: Number(newGen) || 1,
         date_of_birth: newDOB || null,
         gender: newGender,
         family_id: familyId,
+        profile_picture_path: finalPath, 
       });
 
-      console.log("DB created:", created);
-
-
-      // update UI instantly (optimistic update)
-      setShowAdd(false);
-      setNewFirstName("");
-      setNewLastName("");
-      setNewGen("3");
-      setNewRole("");
-      setNewParent("");
-      setNewGender("M");
-      setNewDOB("");
-
-      // IMPORTANT: update parent state
-      // (need to pass setMembers OR refetch from index)
-      addMember?.({
+      // refresh local state
+      const memberForState = {
+        ...created, // Spreading created ensures we get the ID from DB
         id: created.id,
-        name: `${created.first_name} ${created.last_name}`,
-        avatar: newGender === "M" ? "👨" : "👩",
-        role: newRole || "Family",
-        born: created.date_of_birth,
-        parentId: newParent || null,
-        generation: Number(created.generation),
-      });
+        name: `${newFirstName.trim()} ${newLastName.trim()}`,
+        first_name: newFirstName.trim(),
+        last_name: newLastName.trim(),
+        avatar: finalPath,
+        profile_picture_path: finalPath,
+        gender: newGender,
+        generation: Number(newGen), // Must be a number for the useMemo logic
+        date_of_birth: newDOB || null,
+        role: "Family"
+      };
 
+      addMember?.(memberForState);
+
+      setShowAdd(false);
+      resetForm();
     } catch (err) {
-      console.error("handleAddMember failed:", err);
+      console.error("Failed to add member:", err);
+      alert("Error adding member. Please try again.");
+    } finally {
+      setUploading(false);
     }
   };
 
-  return (
-    <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMod}
-      description="Browse family members by generation. Tap a person to see the notes they have left for the family. Use the plus button to add new family members."
-      viewSrc={viewSrc}>
+  const resetForm = () => {
+    setNewFirstName(""); setNewLastName(""); setNewGen("3");
+    setNewGender("M"); setNewDOB(""); setImageFile(null); setPreviewUrl(null);
+  };
 
+  return (
+    <PageContainer navigate={navigate} title="Family Tree" boomerMode={boomerMod} viewSrc={viewSrc}>
+      
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600 }}>Family Generations</div>
-          <div style={{ fontSize: 13, color: COLORS.inkLight }}>Scroll to see every generation in your family.</div>
-        </div>
-        <button onClick={() => setShowAdd(true)} style={{
-          background: COLORS.accent, color: COLORS.paper, border: "none", borderRadius: 12,
-          padding: "10px 16px", cursor: "pointer", fontFamily: "'Playfair Display', serif",
-          fontSize: 14, fontWeight: 600,
-        }}>+ Add Member</button>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20 }}>Family Generations</h2>
+        <button onClick={() => setShowAdd(true)} style={addButtonStyle}>+ Add Member</button>
       </div>
 
-      <div
-        ref={genScrollRef}
-        onWheel={(e) => {
-          if (e.deltaY === 0) return;
-          e.preventDefault();
-          genScrollRef.current.scrollLeft += e.deltaY;
-        }}
-        style={{
-          background: COLORS.paper,
-          borderRadius: 16,
-          padding: "32px 24px",
-          border: `1px solid ${COLORS.warm}40`,
-          overflowX: "auto",
-          boxShadow: "inset 0 2px 10px rgba(0,0,0,0.02)"
-        }}>
-        <div style={{ display: "flex", gap: 40, minWidth: "max-content", alignItems: "flex-start" }}>
+      <div style={treeScrollContainer}>
+        <div style={{ display: "flex", gap: 40, minWidth: "max-content" }}>
           {generations.map(gen => (
-            <div key={gen.generation} style={{ width: 220, flexShrink: 0 }}>
-              {/* Generation Header */}
-              <div style={{
-                fontFamily: "'Playfair Display', serif", 
-                fontSize: 14, 
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                fontWeight: 700,
-                marginBottom: 20, 
-                color: COLORS.accent,
-                borderBottom: `1px solid ${COLORS.warm}40`,
-                paddingBottom: 8
-              }}>
-                Gen {gen.generation}
-              </div>
+            <div key={gen.generation} style={{ width: 220 }}>
+              <div style={genHeaderStyle}>GEN {gen.generation}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {gen.members.map(member => {
+                  const active = selectedMember?.id === member.id;
+                  const currentPath = member.profile_picture_path || member.avatar;
 
-              {/* Members List */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {gen.members.length === 0 ? (
-                  <div style={{ fontSize: 12, color: COLORS.inkLight, fontStyle: "italic", padding: "10px" }}>
-                    No members
-                  </div>
-                ) : (
-                  gen.members.map(member => {
-                    const active = selectedMember?.id === member.id;
-                    return (
-                      <button 
-                        key={member.id} 
-                        onClick={() => setSelectedMember(member)} 
-                        style={{
-                          background: active ? COLORS.accent : "#ffffff",
-                          border: `1px solid ${active ? COLORS.accent : COLORS.warm + "40"}`,
-                          borderRadius: 12, 
-                          padding: "12px", 
-                          cursor: "pointer",
-                          display: "flex", 
-                          alignItems: "center", 
-                          gap: 12, 
-                          textAlign: "left",
-                          transition: "all 0.2s ease",
-                          boxShadow: active ? `0 4px 12px ${COLORS.accent}40` : "0 2px 4px rgba(0,0,0,0.03)",
-                          width: "100%"
-                        }}
-                      >
-                        <SpriteImg src={sprites[member.id]} fallback={member.avatar} size={32} />
-                        <div style={{ overflow: "hidden" }}>
-                          <div style={{ 
-                            fontFamily: "'Playfair Display', serif", 
-                            fontSize: 13, 
-                            fontWeight: 600, 
-                            color: active ? COLORS.paper : COLORS.ink,
-                            whiteSpace: "nowrap",
-                            textOverflow: "ellipsis"
-                          }}>
-                            {member.name}
-                          </div>
-                          <div style={{ 
-                            fontSize: 11, 
-                            color: active ? COLORS.paper + "CC" : COLORS.inkLight 
-                          }}>
-                            {member.role || "Family Member"}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
+                  return (
+                    <button key={member.id} onClick={() => setSelectedMember(member)} style={{
+                      ...memberButtonStyle,
+                      background: active ? COLORS.accent : "#fff",
+                      border: `1px solid ${active ? COLORS.accent : COLORS.warm + "40"}`,
+                      boxShadow: active ? "0 4px 8px rgba(0,0,0,0.1)" : "none"
+                    }}>
+                      <div style={{ ...avatarCircleStyle, background: active ? "rgba(255,255,255,0.2)" : "#f0f0f0" }}>
+                        <FamilyMemberAvatar 
+                          path={currentPath} 
+                          gender={member.gender} 
+                        />
+                      </div>
+                      <span style={{ ...nameStyle, color: active ? "#fff" : COLORS.ink }}>
+                        {member.name || `${member.first_name} ${member.last_name}`}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {selectedMember && (
-        <div style={{ marginTop: 28 }}>
-          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, textAlign: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 20, lineHeight: 1, verticalAlign: "middle", marginRight: 6 }}>{selectedMember.avatar}</span> Notes by {selectedMember.name}
-          </h3>
-          <p style={{ textAlign: "center", fontSize: 13, color: COLORS.inkLight, marginBottom: 20 }}>
-            {memberNotes.length} note{memberNotes.length !== 1 ? "s" : ""} left for the family
-          </p>
-          {memberNotes.length === 0 ? (
-            <p style={{ textAlign: "center", color: COLORS.inkLight, fontStyle: "italic" }}>No notes from {selectedMember.name} yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {memberNotes.map(note => {
-                const toMember = note.to === "all" ? null : getMember(note.to);
-                return (
-                  <div key={note.id} style={{
-                    background: COLORS.paper, border: `1px solid ${COLORS.warm}40`,
-                    borderRadius: 14, padding: 20,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, color: COLORS.inkLight, display: "flex", alignItems: "center", gap: 4 }}>
-                        To: {toMember
-                          ? <><span style={{ fontSize: 14, lineHeight: 1 }}>{toMember.avatar}</span> {toMember.name}</>
-                          : "👨‍👩‍👧‍👦 Everyone"}
-                      </span>
-                      <span style={{
-                        fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600,
-                        background: note.type === "tradition" ? `${COLORS.green}22` : note.type === "letter" ? `${COLORS.accent}22` : `${COLORS.warm}22`,
-                        color: note.type === "tradition" ? COLORS.green : note.type === "letter" ? COLORS.accent : COLORS.warmDark,
-                      }}>
-                        {note.type === "tradition" ? "Tradition" : note.type === "letter" ? "Letter" : "Heirloom"}
-                      </span>
-                    </div>
-                    <h4 style={{ fontFamily: "'Playfair Display', serif", margin: "0 0 6px", fontSize: 16 }}>{note.title}</h4>
-                    <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.inkLight, margin: 0 }}>{note.content}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
+      {/* Add Member Modal */}
       {showAdd && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,10,5,0.7)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }} onClick={() => setShowAdd(false)}>
-          <div style={{
-            background: COLORS.paper, borderRadius: 16, padding: "22px 24px",
-            maxWidth: 520, width: "92%", boxShadow: `0 20px 60px rgba(0,0,0,0.4)`,
-          }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, margin: 0 }}>Add New Family Member</h3>
-              <button onClick={() => setShowAdd(false)} style={{
-                background: "none", border: "none", fontSize: 20, cursor: "pointer", color: COLORS.ink,
-              }}>{"✕"}</button>
+        <div style={modalOverlay} onClick={() => setShowAdd(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, margin: 0 }}>New Family Member</h3>
+                <button onClick={() => setShowAdd(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: COLORS.inkLight }}>✕</button>
             </div>
-            <div style={{ display: "grid", gap: 12 }}>
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                First Name
-                <input value={newFirstName} onChange={(e) => setNewFirstName(e.target.value)} placeholder="e.g. Kai" style={{
-                  width: "100%", marginTop: 6, padding: "8px 10px",
-                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
-                  fontFamily: "'Crimson Text', serif",
-                }} />
-              </label>
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Last Name
-                <input value={newLastName} onChange={(e) => setNewLastName(e.target.value)} placeholder="e.g. Chen" style={{
-                  width: "100%", marginTop: 6, padding: "8px 10px",
-                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
-                  fontFamily: "'Crimson Text', serif",
-                }} />
-              </label>
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Gender
-                <select value={newGender} onChange={(e) => setNewGender(e.target.value)} style={{
-                  width: "100%", marginTop: 6, padding: "8px 10px",
-                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
-                  fontFamily: "'Crimson Text', serif",
-                }}>
-                  <option value="M">Male</option>
-                  <option value="F">Female</option>
-                </select>
-              </label>
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Date of Birth
-                <input 
-                  type="date" 
-                  value={newDOB} 
-                  onChange={(e) => setNewDOB(e.target.value)} 
-                  style={{
-                    width: "100%", 
-                    marginTop: 6, 
-                    padding: "8px 10px",
-                    borderRadius: 10, 
-                    border: `1px solid ${COLORS.warm}40`,
-                    fontFamily: "'Crimson Text', serif",
-                    boxSizing: "border-box" // Ensures padding doesn't break width
-                  }} 
-                />
-              </label>
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Generation
-                <select value={newGen} onChange={(e) => setNewGen(e.target.value)} style={{
-                  width: "100%", marginTop: 6, padding: "8px 10px",
-                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
-                  fontFamily: "'Crimson Text', serif",
-                }}>
-                  <option value="1">Generation 1</option>
-                  <option value="2">Generation 2</option>
-                  <option value="3">Generation 3</option>
-                  <option value="4">Generation 4</option>
-                </select>
-              </label>
-              {/*}
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Role (optional)
-                <input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="e.g. Aunt, Cousin" style={{
-                  width: "100%", marginTop: 6, padding: "8px 10px",
-                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
-                  fontFamily: "'Crimson Text', serif",
-                }} />
-              </label>
-              <label style={{ fontSize: 12, color: COLORS.inkLight }}>
-                Parent (optional)
-                <select value={newParent} onChange={(e) => setNewParent(e.target.value)} style={{
-                  width: "100%", marginTop: 6, padding: "8px 10px",
-                  borderRadius: 10, border: `1px solid ${COLORS.warm}40`,
-                  fontFamily: "'Crimson Text', serif",
-                }}>
-                  <option value="">No parent selected</option>
-                  {members.map(member => (
-                    <option key={member.id} value={member.id}>{member.name}</option>
-                  ))}
-                </select>
-              </label>
-              */}
+            
+            <div style={{ display: "grid", gap: 16 }}>
+              {/* Profile Preview */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+                <div style={previewCircleStyle}>
+                    {previewUrl ? (
+                        <img src={previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                        <span style={{ fontSize: 32, opacity: 0.4 }}>{newGender === "M" ? "👨" : "👩"}</span>
+                    )}
+                </div>
+                <label style={{ cursor: 'pointer', color: COLORS.accent, fontSize: 13, fontWeight: 600 }}>
+                    {imageFile ? "Change Photo" : "Upload Portrait"}
+                    <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} style={{ display: 'none' }} />
+                </label>
+              </div>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>First Name</label>
+                    <input placeholder="Kai" value={newFirstName} onChange={e => setNewFirstName(e.target.value)} style={modalInputStyle} />
+                </div>
+                <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>Last Name</label>
+                    <input placeholder="Chen" value={newLastName} onChange={e => setNewLastName(e.target.value)} style={modalInputStyle} />
+                </div>
+              </div>
+              
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Gender</label>
+                  <select value={newGender} onChange={e => setNewGender(e.target.value)} style={modalInputStyle}>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Generation</label>
+                  <select value={newGen} onChange={e => setNewGen(e.target.value)} style={modalInputStyle}>
+                    <option value="1">Gen 1 (Elders)</option>
+                    <option value="2">Gen 2</option>
+                    <option value="3">Gen 3</option>
+                    <option value="4">Gen 4 (Youngest)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Birth Date</label>
+                <input type="date" value={newDOB} onChange={e => setNewDOB(e.target.value)} style={modalInputStyle} />
+              </div>
+
+              <button 
+                onClick={handleAddMember} 
+                disabled={uploading}
+                style={{
+                  ...saveButtonStyle,
+                  cursor: uploading ? "not-allowed" : "pointer",
+                  opacity: uploading ? 0.7 : 1,
+                }}
+              >
+                {uploading ? "Creating..." : "Save Family Member"}
+              </button>
             </div>
-            <button onClick={handleAddMember} style={{
-              marginTop: 16, width: "100%", padding: "10px 14px",
-              border: "none", borderRadius: 10, background: COLORS.accent,
-              color: COLORS.paper, fontFamily: "'Playfair Display', serif", cursor: "pointer",
-              fontSize: 15, fontWeight: 600,
-            }}>
-              Add Member
-            </button>
           </div>
         </div>
       )}
     </PageContainer>
   );
 }
+
+/* --- Styles --- */
+const treeScrollContainer = { background: COLORS.paper, borderRadius: 16, padding: "32px 24px", border: `1px solid ${COLORS.warm}40`, overflowX: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" };
+const genHeaderStyle = { color: COLORS.accent, fontWeight: 700, fontSize: 12, letterSpacing: '1px', marginBottom: 15, borderBottom: `1px solid ${COLORS.warm}20`, paddingBottom: 5 };
+const memberButtonStyle = { borderRadius: 12, padding: "10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left", width: "100%" };
+const avatarCircleStyle = { width: 32, height: 32, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" };
+const nameStyle = { fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+const modalOverlay = { position: "fixed", inset: 0, zIndex: 100, background: "rgba(20,10,5,0.7)", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" };
+const modalContent = { background: COLORS.paper, borderRadius: 24, padding: "30px", maxWidth: 450, width: "92%", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" };
+const previewCircleStyle = { width: 80, height: 80, borderRadius: '50%', background: '#f5f5f5', border: `1px dashed ${COLORS.warm}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const addButtonStyle = { background: COLORS.accent, color: COLORS.paper, border: "none", borderRadius: 12, padding: "10px 16px", cursor: "pointer", fontWeight: 600 };
+const saveButtonStyle = { marginTop: 10, padding: "16px", border: "none", borderRadius: 14, background: COLORS.accent, color: "#fff", fontWeight: 700, fontSize: 16, boxShadow: `0 4px 12px ${COLORS.accent}40` };
+const labelStyle = { fontSize: 11, fontWeight: 700, color: COLORS.inkLight, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, display: 'block' };
+const modalInputStyle = { width: "100%", padding: "12px", borderRadius: 10, border: `1px solid ${COLORS.warm}60`, backgroundColor: '#fff', fontSize: 14, outline: "none", boxSizing: 'border-box' };

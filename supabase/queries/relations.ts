@@ -13,7 +13,8 @@ export const getFamilyMembers = async (familyId) => {
         created_at,
         date_of_birth,
         gender,
-        generation
+        generation,
+        profile_picture_path
       )
     `)
     .eq('family_id', familyId)
@@ -32,6 +33,7 @@ export const getFamilyMembers = async (familyId) => {
       date_of_birth: p.date_of_birth,
       gender: p.gender,
       generation: p.generation,
+      profile_picture_path: p.profile_picture_path
     };
   });
 };
