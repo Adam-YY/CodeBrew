@@ -29,6 +29,12 @@ export default function CassettePage({
 
   const getMember = (id) => members.find((m) => m.id === id);
 
+  useEffect(() => {
+    if (calendarDraft?.target !== "cassette") return;
+    setEventDate(calendarDraft.eventDate || "");
+    consumeCalendarDraft?.("cassette");
+  }, [calendarDraft, consumeCalendarDraft]);
+
   const typeIcons = { document: "📄", voice: "🎙️", video: "🎞️" };
   const typeColors = {
     document: COLORS.green,

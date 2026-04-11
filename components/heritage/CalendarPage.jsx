@@ -25,6 +25,15 @@ export default function CalendarPage({
 
   const getMember = (id) => members.find((m) => m.id === id);
 
+  /** Normalize DB or UI date strings to MM-DD for the recurring calendar grid. */
+  const toMonthDay = (raw) => {
+    if (raw == null || raw === "") return null;
+    const s = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(5, 10);
+    if (/^\d{2}-\d{2}$/.test(s)) return s;
+    return null;
+  };
+
   const daysInMonth = new Date(year, selectedMonth + 1, 0).getDate();
   const firstDay = new Date(year, selectedMonth, 1).getDay();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -32,7 +41,14 @@ export default function CalendarPage({
   const getNotesForDay = (day) => {
     const mm = String(selectedMonth + 1).padStart(2, "0");
     const dd = String(day).padStart(2, "0");
-    return notes.filter(n => n.eventDate === `${mm}-${dd}` && (n.to === currentUser.id || n.to === "all"));
+    const target = `${mm}-${dd}`;
+    return (notes || []).filter((n) => {
+      const noteDay = toMonthDay(n.eventDate ?? n.unlockDate ?? n.unlock_date);
+      if (noteDay !== target) return false;
+      const to = n.to ?? n.recipient_id;
+      const visible = to == null || to === currentUser.id;
+      return visible;
+    });
   };
 
   const getUploadsForDay = (day) => {
@@ -40,13 +56,13 @@ export default function CalendarPage({
     const dd = String(day).padStart(2, "0");
     const target = `${mm}-${dd}`;
     return (uploads || []).filter((u) => {
-      const uploadDate = u.event_date || u.eventDate || null;
+      const uploadDay = toMonthDay(u.event_date ?? u.eventDate ?? u.display_date);
       const visibleToCurrentUser =
         u.recipient_id == null ||
         u.recipient_id === currentUser.id ||
         u.to === "all" ||
         u.to === currentUser.id;
-      return uploadDate === target && visibleToCurrentUser;
+      return uploadDay === target && visibleToCurrentUser;
     });
   };
 
@@ -126,7 +142,7 @@ export default function CalendarPage({
               }} style={{
                 background: isSelected ? COLORS.warm : hasEvents ? `${COLORS.warm}15` : "transparent",
                 border: hasEvents ? `1px solid ${COLORS.warm}50` : "1px solid transparent",
-                borderRadius: 10, padding: "8px 4px", cursor: hasEvents ? "pointer" : "default",
+                borderRadius: 10, padding: "8px 4px", cursor: "pointer",
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                 minHeight: 42, transition: "all 0.2s",
                 color: isSelected ? COLORS.paper : COLORS.ink,

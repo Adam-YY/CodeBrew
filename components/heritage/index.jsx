@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { COLORS } from "./colors";
 import { DEFAULT_AVATARS } from "./data";
 import RoomScene from "./RoomScene";
@@ -12,6 +12,7 @@ import LoginPage from "./LoginPage";
 import { BlurredRoomBackground } from "./shared";
 
 import { getFamilyMembers } from "@/supabase/queries/relations";
+import { getLetters } from "@/supabase/queries/getLetter";
 import { supabase } from "@/supabase/client";
 
 // Pages that require at least one family member to exist
@@ -199,6 +200,109 @@ export default function HeritageHome() {
     setCurrentUser((prev) => prev ?? newMember);
   };
 
+  const loadCalendarData = useCallback(async () => {
+    if (!currentUser?.id) return;
+    try {
+      const letters = await getLetters(currentUser.id);
+      const mappedNotes = letters
+        .filter((l) => l.unlock_date)
+        .map((l) => ({
+          id: l.id,
+          from: l.sender_id,
+          to: l.recipient_id,
+          title: l.title,
+          content: l.message,
+          unlockDate: l.unlock_date,
+          eventDate: String(l.unlock_date).slice(5, 10),
+        }));
+
+      const { data: familyPersonRow } = await supabase
+        .from("family_person")
+        .select("family_id")
+        .eq("person_id", currentUser.id)
+        .single();
+
+      if (!familyPersonRow) {
+        setNotes(mappedNotes);
+        setUploads([]);
+        return;
+      }
+
+      const { data: familyPersons } = await supabase
+        .from("family_person")
+        .select("person_id")
+        .eq("family_id", familyPersonRow.family_id);
+
+      const familyPersonIds = (familyPersons ?? []).map((fp) => fp.person_id);
+      if (familyPersonIds.length === 0) {
+        setNotes(mappedNotes);
+        setUploads([]);
+        return;
+      }
+
+      const { data: messages, error } = await supabase
+        .from("message")
+        .select("*")
+        .in("sender_id", familyPersonIds)
+        .or(`recipient_id.is.null,recipient_id.eq.${currentUser.id},sender_id.eq.${currentUser.id}`)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mappedUploads = (messages ?? [])
+        .filter((m) => m.display_date)
+        .map((m) => ({
+          ...m,
+          event_date:
+            String(m.display_date).length >= 10
+              ? String(m.display_date).slice(5, 10)
+              : String(m.display_date),
+        }));
+
+      setNotes(mappedNotes);
+      setUploads(mappedUploads);
+    } catch (e) {
+      console.error("loadCalendarData:", e);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser?.id || page !== "calendar") return;
+    loadCalendarData();
+  }, [currentUser?.id, page, loadCalendarData]);
+
+  const consumeCalendarDraft = (target) => {
+    setCalendarDraft((d) => (d && d.target === target ? null : d));
+  };
+
+  const openMessageFromCalendar = (isoDate) => {
+    if (!hasMembers) {
+      setLockedFlash(true);
+      setTimeout(() => setLockedFlash(false), 600);
+      return;
+    }
+    setCalendarDraft({ target: "letters", eventDate: isoDate || "" });
+    setTransition(true);
+    setTimeout(() => {
+      setPage("letters");
+      setTransition(false);
+    }, 400);
+  };
+
+  const openFileFromCalendar = (isoDate) => {
+    if (!hasMembers) {
+      setLockedFlash(true);
+      setTimeout(() => setLockedFlash(false), 600);
+      return;
+    }
+    setCalendarDraft({ target: "cassette", eventDate: isoDate || "" });
+    setTransition(true);
+    setTimeout(() => {
+      setPage("cassette");
+      setTransition(false);
+    }, 400);
+  };
+
   const pageProps = {
     navigate,
     currentUser,
@@ -219,6 +323,9 @@ export default function HeritageHome() {
     uploads,
     familyId,
     calendarDraft,
+    consumeCalendarDraft,
+    openMessageFromCalendar,
+    openFileFromCalendar,
     onLogout: handleLogout,
     addMember: handleMemberAdded,
   };
